@@ -326,11 +326,28 @@ def warning_banner(document: dict[str, Any], result: dict[str, Any]) -> None:
     calibration = document["config"]["hard_gates"].get("calibration", "")
     warnings = list(result.get("warnings", [])) + list(document.get("warnings", []))
     unique = list(dict.fromkeys(warnings))
-    if calibration == "initial_uncalibrated":
+    evaluation = document.get("evaluation")
+    if isinstance(evaluation, dict) and evaluation.get("status") == "ok":
+        metrics = evaluation.get("metrics", {})
+        precision = metrics.get("precision_at_n")
+        pairwise = (evaluation.get("pairwise") or {}).get("accuracy")
+        pieces = []
+        if precision is not None:
+            pieces.append(f"precisión@N = {precision:.2f}")
+        if pairwise is not None:
+            pieces.append(f"acierto parejas = {pairwise:.0%}")
+        headline = ", ".join(pieces) if pieces else "medida disponible"
+        st.info(
+            f"Calibración **medida con tus etiquetas**: {headline}. Los umbrales siguen "
+            "siendo `initial_uncalibrated` hasta que se promuevan; consulta *Resumen* "
+            "para el detalle y para decidir si subirlos."
+        )
+    elif calibration == "initial_uncalibrated":
         st.info(
             "Umbrales **sin calibrar** (`initial_uncalibrated`). Los números son "
             "coherentes entre sí, pero no están validados contra criterio humano. "
-            "Usa las etiquetas para medir cuánto se acercan."
+            "Etiqueta planos en *Ranking y gates* y relanza el CLI con `--labels` "
+            "para medir cuánto se acercan."
         )
     with st.expander(f"Avisos del run ({len(unique)})", expanded=False):
         if not unique:
