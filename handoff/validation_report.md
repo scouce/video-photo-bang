@@ -19,7 +19,7 @@
 
 | Check | Command | Result |
 |---|---|---|
-| Unit + integration tests | `.\.venv\Scripts\python.exe -m pytest -q` | **38 passed** |
+| Unit + integration tests | `.\.venv\Scripts\python.exe -m pytest -q` | **112 passed** |
 | Lint | `.\.venv\Scripts\ruff.exe check .` | **All checks passed** |
 
 ## 3. Synthetic end-to-end test
@@ -28,9 +28,10 @@ Sample: `samples/synthetic_test.mov` (9 s, 640×360, 25 fps, three distinct shot
 
 | Check | Result |
 |---|---|
+| Candidates / rejected by prominence | 2 / 0 (both cuts are real) |
 | Detected boundaries | 2.9 s and 5.9 s (exact scene cuts) |
 | Shots | 3 |
-| Selected | 1 (`testsrc2` shot) |
+| Selected | 1 (`shot_0001` 0.0–2.8 s, score 0.754) |
 | Rejected | 2: SMPTE bars (black clipping 0.138 > 0.10) and flat blue (sharpness 0) |
 | Representative frame | PNG written and verified |
 

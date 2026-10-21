@@ -47,6 +47,13 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "weights": {"histogram": 0.65, "gradient": 0.20, "edge": 0.15},
         "mad_multiplier": 3.0,
         "min_gap_seconds": 0.4,
+        "peak_prominence_ratio": 2.0,
+        "peak_prominence_radius": 5,
+        "peak_prominence_guard": 1,
+        "peak_prominence_note": (
+            "A peak must exceed the median distance of its neighbourhood by this factor; "
+            "0 disables the filter. Local maxima inside sustained motion are rejected."
+        ),
         "merge_similarity": 1.0,
         "merge_similarity_note": (
             "Bhattacharyya threshold for merging adjacent shots; 1.0 disables merging"
@@ -91,8 +98,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "midtone_dev": {"low": 0.0, "high": 0.80},
     },
     "hard_gates": {
-        "min_shot_duration_s": 0.5,
+        "min_shot_duration_s": 1.0,
         "max_shot_duration_s": 15.0,
+        "min_shot_duration_note": (
+            "Shots shorter than this are merged into the previous shot before scoring; "
+            "a sub-second fragment is a detection artifact, not a usable shot."
+        ),
         "max_black_clip": 0.10,
         "max_white_clip": 0.10,
         "min_sharpness_score": 0.15,

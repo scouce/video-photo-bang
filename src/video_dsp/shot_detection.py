@@ -18,6 +18,9 @@ MAD_CONSISTENCY = 1.4826
 MIN_THRESHOLD = 1e-3
 RELATIVE_FALLBACK_RATIO = 0.10
 MIN_PHASE_PIXELS = 1e-9
+DEFAULT_PROMINENCE_RATIO = 2.0
+DEFAULT_PROMINENCE_RADIUS = 5
+DEFAULT_PROMINENCE_GUARD = 1
 
 
 @dataclass
@@ -240,15 +243,86 @@ def enforce_min_gap(peaks: list[int], values: np.ndarray, min_gap: int) -> list[
     return sorted(kept)
 
 
+def _finite_or_none(value: float) -> float | None:
+    """JSON-safe ratio: an infinite reference report is stored as ``null``."""
+    return float(value) if math.isfinite(value) else None
+
+
+def peak_prominence(
+    values: np.ndarray, index: int, radius: int, guard: int
+) -> tuple[float, float]:
+    """Return ``(ratio, local_reference)`` for the peak at ``index``.
+
+    The reference is the median distance of the samples around the peak, excluding a
+    guard band of ``guard`` samples on each side so the peak's own shoulder does not
+    raise the baseline. A real cut stands far above its neighbourhood; a local maximum
+    inside sustained motion (a pan, a shake) does not.
+    """
+    count = len(values)
+    low = max(0, index - radius)
+    high = min(count, index + radius + 1)
+    guard_low = max(low, index - guard)
+    guard_high = min(high, index + guard + 1)
+    neighbours = np.concatenate([values[low:guard_low], values[guard_high:high]])
+    value = float(values[index])
+    if neighbours.size == 0:
+        return float("inf"), 0.0
+    reference = float(np.median(neighbours))
+    if reference <= 1e-12:
+        return (float("inf") if value > 1e-12 else 0.0), reference
+    return value / reference, reference
+
+
+def filter_low_prominence(
+    values: np.ndarray,
+    peaks: list[int],
+    min_ratio: float,
+    radius: int = DEFAULT_PROMINENCE_RADIUS,
+    guard: int = DEFAULT_PROMINENCE_GUARD,
+) -> tuple[list[int], list[dict]]:
+    """Split peaks into kept and rejected by local prominence.
+
+    ``min_ratio <= 0`` disables the filter and keeps every peak, which is the behaviour
+    of versions before the prominence test existed. Every rejected peak is returned with
+    its value and local reference so the audit shows why it was discarded.
+    """
+    if min_ratio <= 0 or not peaks:
+        return list(peaks), []
+    kept: list[int] = []
+    rejected: list[dict] = []
+    for index in peaks:
+        ratio, reference = peak_prominence(values, index, radius, guard)
+        if ratio >= min_ratio:
+            kept.append(index)
+            continue
+        rejected.append(
+            {
+                "position": index + 1,
+                "right_index": index + 1,
+                "combined": float(values[index]),
+                "local_reference": reference,
+                "prominence_ratio": _finite_or_none(ratio),
+                "reason": "low_prominence",
+            }
+        )
+    return kept, rejected
+
+
 def detect_boundaries(
     distances: list[FrameDistance],
     multiplier: float,
     min_gap_samples: int,
+    *,
+    prominence_ratio: float = DEFAULT_PROMINENCE_RATIO,
+    prominence_radius: int = DEFAULT_PROMINENCE_RADIUS,
+    prominence_guard: int = DEFAULT_PROMINENCE_GUARD,
 ) -> tuple[list[int], dict]:
     """Detect shot boundaries.
 
     Returns sample positions where a new shot begins (for :func:`build_shots`), plus
     threshold evidence and the raw frame index / timestamp of every boundary for audit.
+    Peaks that do not stand out from their local neighbourhood are recorded as rejected
+    instead of silently dropped.
     """
     if not distances:
         return [], {
@@ -257,29 +331,53 @@ def detect_boundaries(
             "dispersion_source": "none",
             "threshold": 0.0,
             "mad_multiplier": multiplier,
+            "prominence_ratio": prominence_ratio,
+            "prominence_radius": prominence_radius,
+            "prominence_guard": prominence_guard,
+            "peaks_before_prominence": 0,
+            "peaks_rejected_by_prominence": 0,
+            "rejected_peaks": [],
             "peaks": [],
         }
     values = np.array([d.combined for d in distances], dtype=np.float64)
     median, dispersion, threshold, source = mad_threshold(values, multiplier)
-    peaks = find_local_maxima(values, threshold, min_gap_samples)
-    peaks = enforce_min_gap(peaks, values, min_gap_samples)
+    candidates = find_local_maxima(values, threshold, min_gap_samples)
+    candidates = enforce_min_gap(candidates, values, min_gap_samples)
+    peaks, rejected = filter_low_prominence(
+        values, candidates, prominence_ratio, prominence_radius, prominence_guard
+    )
+    for record in rejected:
+        record["time_mid_seconds"] = distances[int(record["position"]) - 1].time_mid_seconds
     positions = [index + 1 for index in peaks]
+    peak_records = []
+    for index in peaks:
+        ratio, reference = peak_prominence(
+            values, index, prominence_radius, prominence_guard
+        )
+        peak_records.append(
+            {
+                "position": index + 1,
+                "right_index": distances[index].right_index,
+                "time_mid_seconds": distances[index].time_mid_seconds,
+                "combined": float(values[index]),
+                "local_reference": reference,
+                "prominence_ratio": _finite_or_none(ratio),
+            }
+        )
     evidence = {
         "median": median,
         "scaled_dispersion": dispersion,
         "dispersion_source": source,
         "threshold": threshold,
         "mad_multiplier": multiplier,
+        "prominence_ratio": prominence_ratio,
+        "prominence_radius": prominence_radius,
+        "prominence_guard": prominence_guard,
+        "peaks_before_prominence": len(candidates),
+        "peaks_rejected_by_prominence": len(rejected),
+        "rejected_peaks": rejected,
         "distance_count": len(distances),
-        "peaks": [
-            {
-                "position": index + 1,
-                "right_index": distances[index].right_index,
-                "time_mid_seconds": distances[index].time_mid_seconds,
-                "combined": float(values[index]),
-            }
-            for index in peaks
-        ],
+        "peaks": peak_records,
     }
     return positions, evidence
 
@@ -381,7 +479,7 @@ def rebuild_shots(
     boundary_positions: list[int],
     *,
     merge_similarity: float = 1.0,
-    min_duration: float = 0.5,
+    min_duration: float = 1.0,
     max_duration: float = 15.0,
 ) -> tuple[list[list[dict]], dict]:
     """Rebuild shots from raw samples and boundary positions, with recorded counts.

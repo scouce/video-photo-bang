@@ -71,8 +71,13 @@ narrative, and aesthetic evaluation are explicitly out of scope.
   THE SYSTEM SHALL mark a candidate shot boundary.
 - **RF-10:** IF the median absolute deviation is degenerate, THEN THE SYSTEM SHALL use a
   relative-maximum fallback and record the dispersion source in the audit JSON.
+- **RF-10a:** A candidate boundary SHALL be kept only when its combined distance is at
+  least `peak_prominence_ratio` times the median distance of its neighbourhood
+  (`peak_prominence_radius` samples, `peak_prominence_guard` excluded around the peak);
+  otherwise it SHALL be recorded as rejected with its value, local reference and reason.
+  A local maximum inside sustained motion is not a content change.
 - **RF-11:** WHEN shot boundaries are produced, THE SYSTEM SHALL enforce the minimum shot
-  duration (merge) and the maximum shot duration (split).
+  duration (merge, default 1.0 s) and the maximum shot duration (split).
 - **RF-12:** WHEN adjacent shots are at least `merge_similarity` similar by Bhattacharyya
   distance over their averaged histograms, THE SYSTEM SHALL merge them and record how many
   shots existed before and after merging.

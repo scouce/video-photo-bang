@@ -15,6 +15,9 @@ htmlcov/
 # Generated pipeline output
 out/
 
+# Local scratch scripts
+tmp_*.py
+
 # OS
 .DS_Store
 Thumbs.db

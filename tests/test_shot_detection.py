@@ -8,6 +8,8 @@ from video_dsp.shot_detection import (
     compute_distances,
     detect_boundaries,
     enforce_min_duration,
+    filter_low_prominence,
+    peak_prominence,
     split_long_shots,
 )
 
@@ -106,6 +108,55 @@ def test_mad_zero_falls_back_to_relative_max():
     )
     assert positions == [21]
     assert evidence["dispersion_source"] == "relative_max_fallback"
+    # An isolated spike above an empty baseline has no neighbourhood to be compared
+    # with, so the ratio is reported as null instead of an infinite number.
+    assert evidence["peaks"][0]["prominence_ratio"] is None
+    assert evidence["peaks"][0]["local_reference"] == 0.0
+
+
+def test_prominence_rejects_peak_inside_sustained_motion():
+    values = [0.30] * 6 + [0.55] + [0.30] * 6 + [3.0] + [0.30] * 6
+    positions, evidence = detect_boundaries(
+        _distances(values), multiplier=3.0, min_gap_samples=2
+    )
+    # The 0.55 bump only reaches 1.83x its neighbourhood: motion, not a cut.
+    assert positions == [14]
+    assert evidence["peaks_before_prominence"] == 2
+    assert evidence["peaks_rejected_by_prominence"] == 1
+    rejected = evidence["rejected_peaks"][0]
+    assert rejected["position"] == 7
+    assert rejected["reason"] == "low_prominence"
+    assert rejected["prominence_ratio"] == pytest.approx(0.55 / 0.30)
+    assert rejected["local_reference"] == pytest.approx(0.30)
+    assert rejected["time_mid_seconds"] == pytest.approx(6.5)
+    assert evidence["peaks"][0]["prominence_ratio"] == pytest.approx(10.0)
+
+
+def test_prominence_zero_disables_the_filter():
+    values = [0.30] * 6 + [0.55] + [0.30] * 6 + [3.0] + [0.30] * 6
+    positions, evidence = detect_boundaries(
+        _distances(values), multiplier=3.0, min_gap_samples=2, prominence_ratio=0.0
+    )
+    assert positions == [7, 14]
+    assert evidence["peaks_rejected_by_prominence"] == 0
+
+
+def test_peak_prominence_uses_a_guard_band():
+    values = np.array([0.10, 1.00, 1.00, 1.00, 0.10])
+    ratio, reference = peak_prominence(values, index=2, radius=2, guard=1)
+    assert reference == pytest.approx(0.10)
+    assert ratio == pytest.approx(10.0)
+    # Without the guard the peak's own shoulder would raise the reference.
+    wide_ratio, wide_reference = peak_prominence(values, index=2, radius=2, guard=0)
+    assert wide_reference == pytest.approx(0.55)
+    assert wide_ratio == pytest.approx(1.0 / 0.55)
+
+
+def test_filter_low_prominence_is_a_pure_split():
+    values = np.array([0.10, 0.10, 1.00, 0.10, 0.15, 0.10])
+    kept, rejected = filter_low_prominence(values, [2, 4], min_ratio=2.0)
+    assert kept == [2]
+    assert [record["position"] for record in rejected] == [5]
 
 
 def _shot(frame_indices, fps=10.0):

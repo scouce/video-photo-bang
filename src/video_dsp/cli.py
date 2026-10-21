@@ -97,6 +97,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-shot-duration", type=float, default=None)
     parser.add_argument("--max-shot-duration", type=float, default=None)
     parser.add_argument(
+        "--peak-prominence",
+        type=float,
+        default=None,
+        help=(
+            "A boundary peak must exceed the median distance of its neighbourhood by "
+            "this factor. 0 disables the filter."
+        ),
+    )
+    parser.add_argument(
         "--merge-similarity",
         type=float,
         default=None,
@@ -164,8 +173,13 @@ def _cli_overrides(args: argparse.Namespace) -> dict[str, Any]:
         gates["max_shot_duration_s"] = args.max_shot_duration
     if gates:
         overrides["hard_gates"] = gates
-    if args.merge_similarity is not None:
-        overrides["shot_detection"] = {"merge_similarity": args.merge_similarity}
+    if args.merge_similarity is not None or args.peak_prominence is not None:
+        detection: dict[str, Any] = {}
+        if args.merge_similarity is not None:
+            detection["merge_similarity"] = args.merge_similarity
+        if args.peak_prominence is not None:
+            detection["peak_prominence_ratio"] = args.peak_prominence
+        overrides["shot_detection"] = detection
     if args.diversity_weight is not None:
         overrides["diversity"] = {"weight": args.diversity_weight}
     if args.quality_floor is not None:
@@ -408,7 +422,12 @@ def run(args: argparse.Namespace) -> int:
         1, int(round(detection["min_gap_seconds"] * config["analysis_fps"]))
     )
     boundary_positions, boundary_evidence = detect_boundaries(
-        distances, detection["mad_multiplier"], min_gap_samples
+        distances,
+        detection["mad_multiplier"],
+        min_gap_samples,
+        prominence_ratio=float(detection.get("peak_prominence_ratio", 2.0)),
+        prominence_radius=int(detection.get("peak_prominence_radius", 5)),
+        prominence_guard=int(detection.get("peak_prominence_guard", 1)),
     )
     boundary_evidence["min_gap_samples"] = min_gap_samples
 
