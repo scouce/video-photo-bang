@@ -45,7 +45,7 @@ py -3.14 -m venv .venv
 .\.venv\Scripts\ruff.exe check .
 
 # run
-.\.venv\Scripts\python.exe -m video_dsp.cli samples/optional_test.mov --out out/shot_selection.json
+.\.venv\Scripts\python.exe -m video_dsp.cli samples/synthetic_test.mov --out out/shot_selection.json
 ```
 
 ## Output contract

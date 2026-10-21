@@ -12,12 +12,29 @@ dist/
 .coverage
 htmlcov/
 
-# Generated pipeline output
+# Generated pipeline output (runs, uploads, exports, media)
 out/
 
 # Local scratch scripts
 tmp_*.py
 
+# Binary media (the only committed sample is force-added below)
+*.mov
+*.mp4
+*.m4v
+*.avi
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.zip
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Keep the test fixture
+!samples/synthetic_test.mov

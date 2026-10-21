@@ -28,6 +28,28 @@ Fast smoke test:
 .\.venv\Scripts\python.exe -m video_dsp.cli samples\synthetic_test.mov --run-dir out\runs\synthetic
 ```
 
+## Primera ejecución
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,ui]"
+
+.\.venv\Scripts\python.exe -m streamlit run app/ui.py
+```
+
+La app arranca **vacía**: no hay vídeos ni fotos precargados. En la pantalla de inicio
+aparece un cargador de vídeos (o un campo de ruta local). Sube un `.mov`/`.mp4`/… o
+pega la ruta de un archivo que ya esté en tu equipo; el análisis se ejecuta en segundo
+plano y el run aparece en el selector al terminar. La primera ejecución sobre un clip
+4K tarda unos minutos; los resultados se guardan en `out/runs/` (ignorado por git, solo
+local).
+
+Para uso sin interfaz:
+
+```powershell
+.\.venv\Scripts\python.exe -m video_dsp.cli "C:\path\to\video.mov"
+```
+
 ## Calibration UI
 
 ```powershell
