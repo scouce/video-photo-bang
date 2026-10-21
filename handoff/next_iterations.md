@@ -3,6 +3,23 @@
 Prioritized backlog after the calibration-first iteration (v0.2.0). Keep the core classical
 and deterministic.
 
+## Done in v0.2.2 (simple UI, F2)
+
+- `Simple` mode is the default: results gallery with previews, per-photo PNG download, ZIP of
+  the recommended shots and config JSON — all on the main page.
+- Modal "ficha" per shot: derived, jargon-free explanation plus the raw/normalized evidence.
+- Encapsulated sidebar (foto type, count, duplicate suppression) writing the same config.
+- `Técnico` mode keeps the six tabs; one config write path, one export.
+
+## Next for the simple UI
+
+1. **F1 — thumbnails** for recommended + discarded shots (`media/thumbs/<shot_id>.jpg`,
+   480 px) so the discard cards stop showing "Sin vista previa en este run".
+2. **F3 — Ajustar page**: quality level (permisiva/estándar/exigente) mapped to explicit
+   gates, minimum duration, advanced weights, "¿Qué cambia exactamente?".
+3. **F4 — accessibility pass**: glossary surface, contrast/target-size check, screenshots.
+4. **Keyboard-first gallery**: per-card focus ring and `Enter` to open the ficha.
+
 ## Done in v0.2.0
 
 - Per-frame CSV (`samples.csv.gz`), byte-deterministic.
@@ -13,6 +30,14 @@ and deterministic.
 - Boundary evidence montages (five frames per cut), replacing clip export.
 - Live re-ranking client with real shot rebuild on merge changes.
 - `.mp4` / `.m4v` / `.avi` / `.mkv` support.
+
+## Done in v0.2.1
+
+- Boundary prominence filter (`peak_prominence_ratio`): a local maximum inside sustained
+  motion is no longer a cut. On `IMG_1564.mov` this removed 22 of 98 candidates.
+- Minimum shot duration raised from 0.5 s to 1.0 s, so sub-second fragments are merged
+  before scoring instead of competing for the Top-N.
+- Rejected peaks are recorded in the audit and listed in the boundary tab.
 
 ## P0 — Calibration and trust
 
@@ -32,6 +57,11 @@ and deterministic.
 5. **Over-segmentation control in the CLI.** `--merge-similarity` exists; add a per-run report
    of *which* merges happened (shot pairs, similarity) so a bad threshold is visible without
    opening the UI.
+5b. **Discriminative diversity signature.** On single-scene handheld footage the mean
+   luminance histogram gives Bhattacharyya similarity ≥ 0.95 for almost every pair, so the
+   MMR slider is inert (`displaced_by_diversity` is empty). Replace or augment the signature
+   with a spatial grid (coarse luminance blocks) or an added color histogram so diversity can
+   actually displace near-duplicates. Record which signature was used.
 6. **Transition handling.** Detect fades and dissolves explicitly instead of treating them as
    cuts or long shots.
 7. **Artifact metrics.** Blockiness, banding and mosquito-noise estimates, to catch

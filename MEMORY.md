@@ -4,10 +4,11 @@ Living record of decisions, status, and open items. Updated at the end of every 
 
 ## Current MVP status
 
-- **Status:** MVP complete and validated (docs and handoff delivered).
-- **Target:** deterministic classical-DSP shot selector for `.mov` files.
-- **Pipeline version:** 0.1.0 (`0.1.0-mvp` schema).
-- **Quality gates:** 38 tests passing; `ruff check .` clean.
+- **Status:** MVP complete, recalibrated for v0.2.0 and validated on 4K footage. A
+  non-photographer client (Simple mode) was added on top of the same config surface.
+- **Target:** deterministic classical-DSP shot selector for `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv`.
+- **Pipeline version:** 0.2.0 (`0.2.0` schema).
+- **Quality gates:** 123 tests passing; `ruff check .` clean.
 
 ## Environment
 
@@ -19,16 +20,25 @@ Living record of decisions, status, and open items. Updated at the end of every 
 
 - `analysis_fps = 5.0`
 - `top_n = 10`
-- `min_shot_duration_s = 0.5`, `max_shot_duration_s = 15.0`
+- `min_shot_duration_s = 1.0`, `max_shot_duration_s = 15.0`
 - Shot detection weights: histogram 0.65, gradient 0.20, edge 0.15
 - `mad_multiplier = 3.0` (with 1.4826 consistency factor)
 - `min_gap_seconds = 0.4`
-- `analysis_resize`: enabled, longest edge 1280 px, area interpolation (recorded, disable-able
+- Peak prominence: ratio 2.0, radius 5 samples (±1 s), guard 1 sample. A candidate
+  boundary must beat the median distance of its neighbourhood by 2x; `--peak-prominence 0`
+  disables the filter (the pre-0.2.0 behaviour).
+- Analysis resize: enabled, longest edge 1280 px, area interpolation (recorded, disable-able
   with `--analysis-max-dimension 0`).
-- Normalization ranges tuned on one 4K iPhone sample at 1280-px analysis:
-  VoL [20, 400], Tenengrad [500, 8000], luminance std [0.05, 0.35], instability [0, 0.35]
-- Hard gates: black/white clip ≤ 0.10, min sharpness score 0.15, max instability 0.40
-- Score weights: sharpness 0.40, exposure 0.25, contrast 0.20, stability 0.15
+- Ranking normalization: per-video p5-p95 with explicit fallbacks (`too_few_shots`,
+  `degenerate_spread`); gates and target bands stay absolute.
+- Normalization ranges (gates and bands) tuned on one 4K iPhone sample at 1280-px analysis:
+  VoL [20, 400], Tenengrad [500, 8000], luminance std [0.05, 0.35], instability [0, 0.35],
+  jitter [0, 3] px, entropy [0.30, 0.95], local contrast [0.010, 0.100].
+- Hard gates: black/white clip ≤ 0.10, min sharpness score 0.15, max instability 0.40,
+  max jitter 4.0 px.
+- Score weights (`balanced_v2`): sharpness 0.28, exposure 0.18, contrast 0.12,
+  stability 0.16, motion 0.10, color 0.06, texture 0.05, duration 0.05.
+- Diversity: MMR with weight 0.25 over Bhattacharyya histogram similarity.
 - All thresholds carry `calibration = "initial_uncalibrated"`.
 
 ## Known codec / container issues
@@ -59,12 +69,27 @@ Living record of decisions, status, and open items. Updated at the end of every 
 ## Validation results (2026-10-21)
 
 - Synthetic sample: 3 shots, exact cuts at 2.9 s / 5.9 s, 1 selected, 2 rejected.
-- Real sample `IMG_1564.mov` (343.49 s, 4K portrait): 1718 samples, 98 boundary positions,
-  93 shots, 69 passed gates, 10 selected, 24 rejected (all `min_sharpness_score`), 59 passing
-  but unselected. 10 full-resolution 2160×3840 PNGs written.
-- Top score 0.7985 (`shot_0016`, 49.2–51.4 s). Selected range 6.6–84.6 s.
+- Real sample `IMG_1564.mov` (343.49 s, 4K portrait), run `out/runs/img1564_calib2`:
+  1718 samples, 98 boundary candidates → 76 kept (22 dropped by peak prominence), 66 shots,
+  57 passed gates, 10 selected, 9 rejected (5 `min_sharpness_score`, 4 `max_jitter_px`),
+  47 passing-but-unselected. 10 full-resolution PNGs and 76 boundary montages written.
+- Top score 0.941; shortest selected shot 1.2 s; every Top-10 shot is between 1.8 and 5.6 s.
 - Analysis resolution 720×1280; decoded size 2160×3840.
 - See `handoff/validation_report.md` for the full evidence.
+
+## Simple UI iteration (specs/002-ui-simple)
+
+- Two modes, default **Simple**: gallery with preview + per-photo PNG download, ZIP of the
+  recommended shots, config JSON download, and a modal "ficha" with a derived, jargon-free
+  explanation. **Técnico** keeps the six tabs unchanged.
+- Encapsulation rule: every friendly control writes the same explicit config fields; the
+  client still reproduces the CLI ranking from the exported JSON.
+- Client modules: `app/ui.py` (shell), `app/simple.py` (simple mode), `app/copy_es.py`
+  (plain copy). The client downscales previews in memory until F1 precomputes thumbnails.
+- Decisions: F2 shipped before F1; thumbnails will cover recommended + discarded only;
+  downloads are individual + ZIP + config.
+- Tests: `tests/test_ui_simple.py` covers default mode, card count, ZIP payload, discard
+  filter, jargon leakage, preset/reset writes and the "why" sentence.
 
 ## Delivered artifacts
 

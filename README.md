@@ -35,7 +35,14 @@ Fast smoke test:
 .\.venv\Scripts\python.exe -m streamlit run app/ui.py
 ```
 
-Six tabs:
+Two modes, one client, one config:
+
+**Simple** (default) answers three questions ("tipo de foto", "cuántas fotos", "¿evitar
+repetidos?") and shows a gallery of the recommended shots with a preview and a download
+button per photo, a ZIP with the recommended PNGs and the config JSON. "Ver ficha" opens a
+plain-language explanation derived from the ranking; the raw evidence stays one click away.
+
+**Técnico** keeps the six tabs:
 
 | Tab | What it answers |
 | --- | --- |
@@ -46,8 +53,8 @@ Six tabs:
 | Resumen | What did the run produce, and how does it score against my labels? |
 | Auditoría | Exact config, pipeline versions, field catalog, normalization table. |
 
-The sidebar exports the current config as JSON. Feed it back with `--config` to reproduce
-the exact ranking from the command line.
+Both modes write the same config, so the sidebar export reproduces the exact ranking from
+the command line with `--config`.
 
 ## Outputs
 
@@ -70,9 +77,9 @@ Per run directory:
 ## Options
 
 `--preset`, `--analysis-fps`, `--top-n`, `--min-shot-duration`, `--max-shot-duration`,
-`--analysis-max-dimension` (0 = native), `--merge-similarity`, `--diversity-weight`,
-`--quality-floor`, `--config`, `--labels`, `--run-dir`, `--out`, `--thumbnails`,
-`--no-artifacts`, `--no-montage`.
+`--analysis-max-dimension` (0 = native), `--peak-prominence` (0 disables the filter),
+`--merge-similarity`, `--diversity-weight`, `--quality-floor`, `--config`, `--labels`,
+`--run-dir`, `--out`, `--thumbnails`, `--no-artifacts`, `--no-montage`.
 
 Presets: `balanced_v2` (default), `balanced_v1` (legacy 0.1.0 absolute formula),
 `portrait`, `landscape`, `action`, `low_light`, `product`.

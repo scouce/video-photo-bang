@@ -17,33 +17,8 @@ pytest.importorskip("streamlit")
 
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
-from video_dsp.cli import main  # noqa: E402
-
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE = ROOT / "samples" / "synthetic_test.mov"
 APP = ROOT / "app" / "ui.py"
-
-
-@pytest.fixture()
-def run_dir(tmp_path, monkeypatch):
-    if not SAMPLE.exists():
-        pytest.skip("synthetic sample not available")
-    directory = tmp_path / "runs" / "synthetic"
-    code = main(
-        [
-            str(SAMPLE),
-            "--run-dir",
-            str(directory),
-            "--out",
-            str(directory / "audit.json"),
-            "--no-montage",
-            "--top-n",
-            "2",
-        ]
-    )
-    assert code == 0
-    monkeypatch.setenv("VIDEO_DSP_RUNS_DIR", str(directory.parent))
-    return directory
 
 
 def _app(run_dir) -> AppTest:
@@ -53,15 +28,30 @@ def _app(run_dir) -> AppTest:
     return app
 
 
+def _technical(app: AppTest) -> AppTest:
+    """The app opens in Simple mode; the technical checks switch explicitly."""
+    mode = next(radio for radio in app.sidebar.radio if radio.label == "Vista")
+    mode.set_value("Técnico")
+    app.run()
+    assert not app.exception, [error.message for error in app.exception]
+    return app
+
+
 def test_app_loads_a_run_without_error(run_dir):
-    app = _app(run_dir)
+    app = _technical(_app(run_dir))
     labels = [metric.label for metric in app.metric]
     assert "Planos" in labels
     assert "Seleccionados" in labels
 
 
-def test_weight_change_reranks(run_dir):
+def test_simple_mode_is_the_default(run_dir):
     app = _app(run_dir)
+    assert not [metric for metric in app.metric if metric.label == "Planos"]
+    assert app.title, "the simple view still needs a visible title"
+
+
+def test_weight_change_reranks(run_dir):
+    app = _technical(_app(run_dir))
     sliders = {slider.label: slider for slider in app.sidebar.slider}
     for label, slider in sliders.items():
         if label in {"Nitidez", "Exposición", "Contraste", "Estabilidad"}:
@@ -79,7 +69,7 @@ def test_merge_similarity_rebuilds_from_samples(run_dir):
     assert document["distances"], "the run must record frame distances"
     assert document["boundary_positions"]
 
-    app = _app(run_dir)
+    app = _technical(_app(run_dir))
     merge = next(slider for slider in app.slider if "Similitud" in slider.label)
     merge.set_value(0.98)
     app.run()

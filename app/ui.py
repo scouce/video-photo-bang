@@ -16,11 +16,20 @@ from __future__ import annotations
 import copy
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
+APP_DIR = Path(__file__).resolve().parent
+if str(APP_DIR) not in sys.path:
+    # `streamlit run app/ui.py` already adds it; AppTest does not always. The client is a
+    # script, not a package, so the sibling modules are imported flat.
+    sys.path.insert(0, str(APP_DIR))
+
 import altair as alt
+import copy_es
 import pandas as pd
+import simple
 import streamlit as st
 
 from video_dsp.labels import (
@@ -80,6 +89,13 @@ TARGET_LABELS = {
 @st.cache_data(show_spinner=False)
 def load_ui(path: str) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+@st.cache_data(show_spinner=False, max_entries=16)
+def load_image(path: str, mtime: float) -> bytes:
+    """Bytes of an artifact image; ``mtime`` keys the cache to the file on disk."""
+    del mtime
+    return Path(path).read_bytes()
 
 
 @st.cache_data(show_spinner="Cargando muestras…")
@@ -161,6 +177,14 @@ def apply_preset(document: dict[str, Any], name: str) -> None:
     preferences["normalization_method"] = preset["normalization_method"]
     preferences["preset"] = name
     st.session_state["gen"] += 1
+
+
+def reset_preferences(document: dict[str, Any]) -> None:
+    """Back to the run's own config: the simple view must never keep stale knobs."""
+    st.session_state["prefs"] = default_preferences(document)
+    st.session_state["gen"] = st.session_state.get("gen", 0) + 1
+    st.session_state.pop("simple_focus", None)
+    st.session_state["simple_page"] = 0
 
 
 def build_config(document: dict[str, Any], preferences: dict[str, Any]) -> dict[str, Any]:
@@ -304,19 +328,122 @@ def warning_banner(document: dict[str, Any], result: dict[str, Any]) -> None:
             st.markdown(f"- `{warning}`")
 
 
+def clear_shot_focus() -> None:
+    st.session_state.pop("simple_focus", None)
+
+
+@st.dialog("Ficha del plano", width="large", on_dismiss=clear_shot_focus)
+def shot_dialog(
+    document: dict[str, Any], result: dict[str, Any], shot_id: str
+) -> None:
+    shot_detail_panel(document, result, shot_id)
+
+
+def shot_detail_panel(
+    document: dict[str, Any], result: dict[str, Any], shot_id: str
+) -> None:
+    """Plain-language card for one shot, with the full evidence one click away."""
+    shot = next((item for item in result["shots"] if item["shot_id"] == shot_id), None)
+    if shot is None:
+        st.info("Ese plano ya no existe con la configuración actual.")
+        return
+
+    title, close = st.columns([5, 1])
+    title.subheader(f"Plano {shot_id}")
+    if close.button("Cerrar", width="stretch", key="simple_detail_close"):
+        clear_shot_focus()
+        st.rerun()
+
+    st.caption(
+        f"Empieza en {copy_es.clock(shot['start_time_seconds'])} y dura "
+        f"{copy_es.duration_label(shot['duration_seconds'])}."
+    )
+    icon, text = copy_es.status_chip(shot["status"])
+    st.markdown(f"{icon} **{text}**")
+    if shot["status"] in {"rejected_gate", "rejected_floor"}:
+        st.caption(f"Motivo: {copy_es.discard_reason(shot)}.")
+    st.markdown(
+        copy_es.why_sentence(shot, shot.get("score_weights_effective", {}))
+        + " La explicación se deriva del ranking; no es una valoración artística."
+    )
+
+    image_path = shot.get("selected_frame_image_path")
+    left, right = st.columns([3, 2])
+    with left:
+        if image_path and Path(image_path).exists():
+            image = Path(image_path)
+            st.image(
+                simple.preview_bytes(image_path, image.stat().st_mtime, 640),
+                caption=(
+                    f"Fotograma elegido en {copy_es.clock(shot['selected_frame_timestamp'])}. "
+                    f"Regla: {shot.get('selected_frame_rule', 'sharpest')}."
+                ),
+                width=420,
+            )
+        else:
+            st.info(
+                "Este plano no tiene fotograma exportado en este run. Los "
+                "representativos se escriben al generarlo; relanza el CLI para verlo."
+            )
+    with right:
+        if image_path and Path(image_path).exists():
+            image = Path(image_path)
+            st.download_button(
+                "Descargar foto (PNG)",
+                data=simple.file_bytes(image_path, image.stat().st_mtime),
+                file_name=image.name,
+                mime="image/png",
+                width="stretch",
+                key=f"simple_detail_dl_{shot_id}",
+            )
+        failures = shot.get("failed_gates") or []
+        if failures:
+            st.markdown("**Filtros que no pasó**")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "filtro": item["gate"],
+                            "valor": item.get("value"),
+                            "umbral": item.get("threshold"),
+                        }
+                        for item in failures
+                    ]
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+        else:
+            st.markdown("**Filtros**")
+            st.caption("Pasó todos los filtros activos.")
+        score = f"{shot.get('total_score', 0):.3f}".replace(".", ",")
+        st.caption(f"Puntuación total: {score} sobre 1.")
+
+    with st.expander("Ver detalle técnico (variables, unidades y normalización)"):
+        st.dataframe(
+            pd.DataFrame(component_rows(shot, result["normalization"])),
+            hide_index=True,
+            width="stretch",
+        )
+        st.caption(
+            "Cada fila declara variable, unidad, valor bruto, valor normalizado y el "
+            "rango usado. Los valores que faltan aparecen como «no disponible»."
+        )
+
+
 # ----------------------------------------------------------------------------- app
 
 
 def main() -> None:
     st.set_page_config(
-        page_title="Selector técnico de planos",
+        page_title="Selector de planos",
         page_icon="🎬",
         layout="wide",
     )
 
     runs = find_runs()
     if not runs:
-        st.title("Selector técnico de planos")
+        st.title("Selector de planos")
         st.error(
             "No hay runs disponibles. Ejecuta primero:\n\n"
             "```\n.\\\\.venv\\\\Scripts\\\\python.exe -m video_dsp.cli "
@@ -324,7 +451,18 @@ def main() -> None:
         )
         st.stop()
 
-    st.sidebar.title("🎬 Selector técnico")
+    st.sidebar.title("🎬 Selector de planos")
+    mode = st.sidebar.radio(
+        "Vista",
+        ["Simple", "Técnico"],
+        index=0,
+        horizontal=True,
+        key="ui_mode",
+        help=(
+            "Simple: solo lo esencial, con las fotos y sus descargas. "
+            "Técnico: todos los pesos, gates y evidencias."
+        ),
+    )
     run_labels = {path: f"{path.name}" for path in runs}
     selected_run = st.sidebar.selectbox(
         "Run",
@@ -339,6 +477,8 @@ def main() -> None:
         st.session_state["prefs"] = default_preferences(document)
         st.session_state["gen"] = st.session_state.get("gen", 0) + 1
         st.session_state.pop("shot_choice", None)
+        st.session_state.pop("simple_focus", None)
+        st.session_state["simple_page"] = 0
 
     preferences = st.session_state["prefs"]
     generation = st.session_state.get("gen", 0)
@@ -351,11 +491,29 @@ def main() -> None:
         f"{source.get('codec')}"
     )
 
-    render_sidebar(document, preferences, generation)
+    config = build_config(document, preferences)
+    if mode == "Simple":
+        simple.render_sidebar(
+            document,
+            preferences,
+            generation,
+            apply_preset=lambda name: apply_preset(document, name),
+            reset=lambda: reset_preferences(document),
+        )
+    else:
+        render_sidebar(document, preferences, generation)
 
     config = build_config(document, preferences)
     with st.spinner("Recalculando ranking…"):
         result, rebuild_evidence = compute_result(document, config, preferences)
+
+    if mode == "Simple":
+        st.title("Tus fotos")
+        warning_banner(document, result)
+        simple.render_results(document, result, config)
+        if st.session_state.get("simple_focus"):
+            shot_dialog(document, result, st.session_state["simple_focus"])
+        return
 
     header(document, result)
     warning_banner(document, result)
@@ -647,11 +805,21 @@ def tab_calibration(
         st.subheader("Fotograma representativo")
         image_path = shot.get("selected_frame_image_path")
         if image_path and Path(image_path).exists():
+            image = Path(image_path)
             st.image(image_path, width="stretch")
             st.caption(
                 f"{shot['shot_id']} · t={shot['selected_frame_timestamp']:.2f}s · "
                 f"regla: `{shot.get('selected_frame_rule', 'sharpest')}`"
             )
+            st.download_button(
+                "Descargar fotograma (PNG)",
+                data=load_image(str(image), image.stat().st_mtime),
+                file_name=image.name,
+                mime="image/png",
+                width="stretch",
+                key=f"download_frame_{generation}_{shot['shot_id']}",
+            )
+            st.caption(f"Archivo: `{image_path}`")
         else:
             st.info(
                 "Este plano no tiene fotograma exportado con el corte actual. Los "
@@ -931,6 +1099,40 @@ def tab_boundaries(
     else:
         columns[3].metric("Fusión", "desactivada")
 
+    candidates = detection.get("peaks_before_prominence")
+    rejected_peaks = detection.get("rejected_peaks", [])
+    if candidates is not None:
+        st.caption(
+            f"Picos candidatos: **{candidates}** · descartados por baja prominencia: "
+            f"**{len(rejected_peaks)}** · factor exigido: "
+            f"{detection.get('prominence_ratio', 0.0):.2f}× sobre la mediana local "
+            f"(radio {detection.get('prominence_radius', 'no disponible')} muestras, "
+            f"guarda {detection.get('prominence_guard', 'no disponible')}). Un máximo "
+            "dentro de una moción sostenida no es un cambio de contenido."
+        )
+        if rejected_peaks:
+            with st.expander("Picos descartados (moción sostenida, no corte)"):
+                st.dataframe(
+                    pd.DataFrame(
+                        [
+                            {
+                                "t (s)": (
+                                    round(record["time_mid_seconds"], 2)
+                                    if record.get("time_mid_seconds") is not None
+                                    else "no disponible"
+                                ),
+                                "distancia": record.get("combined"),
+                                "referencia local": record.get("local_reference"),
+                                "prominencia": record.get("prominence_ratio"),
+                                "motivo": record.get("reason"),
+                            }
+                            for record in rejected_peaks
+                        ]
+                    ),
+                    width="stretch",
+                    hide_index=True,
+                )
+
     st.divider()
     st.subheader("Evidencia por frontera")
     montages = document.get("boundaries", [])
@@ -952,7 +1154,15 @@ def tab_boundaries(
     )
     montage = montages[index - 1]
     if montage.get("path") and Path(montage["path"]).exists():
+        montage_file = Path(montage["path"])
         st.image(montage["path"], width="stretch")
+        st.download_button(
+            "Descargar montaje (PNG)",
+            data=load_image(str(montage_file), montage_file.stat().st_mtime),
+            file_name=montage_file.name,
+            mime="image/png",
+            key=f"download_montage_{montage['boundary_id']}",
+        )
     st.caption(
         f"t={montage['time_mid_seconds']:.3f}s · "
         f"fuerza={montage.get('combined')} · "
