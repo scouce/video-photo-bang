@@ -24,19 +24,20 @@ done. Do not start a task until the previous one is reviewed.
       filter, jargon, preset writes config, reset, "why" determinism) and the smoke tests
       updated to switch to Técnico explicitly.
 
-## F1 — Data: thumbnails for recommended and discarded shots
+## F1 — Data: thumbnails for recommended and discarded shots (done)
 
-- [ ] T1.1 `config.py`: add `artifacts.thumbnails = {"enabled": true, "max_dimension": 480, "quality": 80}`.
-- [ ] T1.2 `artifacts.py`: `export_shot_thumbnails(video_path, shots, dir, config)` → one JPEG
-      per shot, deterministic path `media/thumbs/<shot_id>.jpg`, returns written paths + sizes.
-- [ ] T1.3 `cli.py`: call it after shot records exist; add `thumb_path`, `thumb_width`,
-      `thumb_height` for selected + `rejected_gate` + `rejected_floor`; warn
-      (`thumbnails_skipped`) when disabled or failed.
-- [ ] T1.4 `ui.json` / `shots.csv`: expose the new fields; update `build_ui_document`.
-- [ ] T1.5 Measure the added cost on `IMG_1564.mov` (19 shots, expected +10–20 s).
-- [ ] T1.6 Tests: `test_thumbnail_artifact` (path, existence, max edge), config defaults.
-- [ ] T1.7 Client: prefer `thumb_path` over the in-memory downscale when present, and use
-      `preview_bytes` only as fallback.
+- [x] T1.1 `config.py`: `artifacts.thumbnails = {"enabled": true, "max_dimension": 480, "quality": 80}`.
+- [x] T1.2 `export.py`: `export_shot_thumbnails(input_path, shots, dir, max_dimension, quality)`
+      → `media/thumbs/<shot_id>.jpg`, sets `thumb_path`, `thumb_width`, `thumb_height`.
+- [x] T1.3 `cli.py`: writes thumbs for selected + `rejected_gate` + `rejected_floor`; records
+      `shot_thumbs_written` and warns when the step is disabled or incomplete.
+- [x] T1.4 `ui.json` carries the fields (shots are serialized whole); `shots.csv` adds
+      `thumb_path`.
+- [x] T1.5 Cost measured on `IMG_1564.mov` (19 shots): see the run log / validation report.
+- [x] T1.6 Tests: `tests/test_cli_integration.py` asserts every recommended/discarded shot has
+      an existing `.jpg`, the max edge is ≤ 480, and passing-unselected shots have none.
+- [x] T1.7 Client: `simple.preview_of` prefers `thumb_path`, falls back to the in-memory
+      downscale for runs created before F1.
 
 ## F3 — Ajustar (encapsulated controls)
 

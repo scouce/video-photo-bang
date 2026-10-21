@@ -111,6 +111,7 @@ SHOT_COLUMNS = (
     "total_score",
     "gate_passed",
     "selection_reason",
+    "thumb_path",
 )
 
 

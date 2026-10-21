@@ -127,9 +127,9 @@ The gallery needs an image per shot; today only the 10 selected shots get a PNG 
 5. **Determinism note:** JPEG bytes depend on the libjpeg/OpenCV build, exactly like the
    existing PNGs. `samples.csv.gz` remains the byte-stable artifact (RF-28); the plan adds
    a warning line to the audit if thumbnails are skipped.
-6. **Interim (F2, shipped):** while F1 is pending, the client downscales the full PNG in
-   memory (`simple.preview_bytes`, cached by path + mtime) so the gallery never ships 6 MB
-   images to the browser. F1 replaces that work at render time with a precomputed file.
+6. **Delivered:** F2 shipped with an in-memory downscale (`simple.preview_bytes`) so the
+   gallery never sent 6 MB images; F1 now writes the JPEG at run time and
+   `simple.preview_of` prefers it, keeping the fallback for older runs.
 
 ## 6. Accessibility checklist (WCAG 2.1 AA)
 

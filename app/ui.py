@@ -367,26 +367,27 @@ def shot_detail_panel(
         + " La explicación se deriva del ranking; no es una valoración artística."
     )
 
-    image_path = shot.get("selected_frame_image_path")
+    image_path = simple.image_path_of(shot)
+    preview = simple.preview_of(shot)
     left, right = st.columns([3, 2])
     with left:
-        if image_path and Path(image_path).exists():
-            image = Path(image_path)
+        if preview:
             st.image(
-                simple.preview_bytes(image_path, image.stat().st_mtime, 640),
+                preview,
                 caption=(
-                    f"Fotograma elegido en {copy_es.clock(shot['selected_frame_timestamp'])}. "
+                    f"Fotograma elegido en "
+                    f"{copy_es.clock(shot['selected_frame_timestamp'])}. "
                     f"Regla: {shot.get('selected_frame_rule', 'sharpest')}."
                 ),
                 width=420,
             )
         else:
             st.info(
-                "Este plano no tiene fotograma exportado en este run. Los "
-                "representativos se escriben al generarlo; relanza el CLI para verlo."
+                "Este plano no tiene vista previa en este run. Los representativos se "
+                "escriben al generarlo; relanza el CLI para verlo."
             )
     with right:
-        if image_path and Path(image_path).exists():
+        if image_path:
             image = Path(image_path)
             st.download_button(
                 "Descargar foto (PNG)",

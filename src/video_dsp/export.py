@@ -151,3 +151,50 @@ def export_representative_frames(
             shot["selected_frame_image_path"] = str(target.as_posix())
             written.append(str(target))
     return written
+
+
+def export_shot_thumbnails(
+    input_path: Path,
+    shots: list[dict],
+    output_dir: Path,
+    *,
+    max_dimension: int = 480,
+    quality: int = 80,
+) -> list[str]:
+    """Write a small JPEG preview per shot and record its size on the shot record.
+
+    The gallery needs one cheap image per recommended and discarded shot; the full-resolution
+    PNG stays reserved for the shots the user can download. Decoding happens once per shot
+    here, at run time, so the client never has to open the video (RF-29).
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for stale in output_dir.glob("*.jpg"):
+        stale.unlink()
+
+    limit = max(1, int(max_dimension))
+    parameters = [int(cv2.IMWRITE_JPEG_QUALITY), max(1, min(100, int(quality)))]
+    written: list[str] = []
+    with FrameReader(input_path) as reader:
+        for shot in shots:
+            index = int(shot["selected_frame_index"])
+            frame = reader.read_index(index)
+            if frame is None:
+                shot["warnings"].append(f"thumbnail_decode_failed (frame_index={index})")
+                continue
+            height, width = frame.shape[:2]
+            scale = min(1.0, limit / max(height, width))
+            if scale < 1.0:
+                frame = cv2.resize(
+                    frame,
+                    (max(1, round(width * scale)), max(1, round(height * scale))),
+                    interpolation=cv2.INTER_AREA,
+                )
+            target = output_dir / f"{shot['shot_id']}.jpg"
+            if not cv2.imwrite(str(target), frame, parameters):
+                shot["warnings"].append(f"thumbnail_write_failed (path={target})")
+                continue
+            shot["thumb_path"] = target.as_posix()
+            shot["thumb_width"] = int(frame.shape[1])
+            shot["thumb_height"] = int(frame.shape[0])
+            written.append(str(target))
+    return written

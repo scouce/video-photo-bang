@@ -41,6 +41,7 @@ from .export import (
     build_error_output,
     build_output,
     export_representative_frames,
+    export_shot_thumbnails,
     write_json,
 )
 from .features import compute_frame_metrics, motion_thumbnail, resize_for_analysis
@@ -464,10 +465,13 @@ def run(args: argparse.Namespace) -> int:
             result["warnings"].append(f"labels_invalid: {exc}")
 
     written_frames: list[str] = []
+    written_thumbs: list[str] = []
     montages: list[dict] = []
     representatives_dir = (
         Path(args.thumbnails) if args.thumbnails else media_dir / "representatives"
     )
+    thumbnails_config = config["artifacts"].get("thumbnails", {})
+    thumbs_dir = media_dir / "thumbs"
     artifacts: dict[str, Any] = {
         "run_dir": run_dir.as_posix(),
         "audit_json": audit_path.as_posix(),
@@ -499,6 +503,22 @@ def run(args: argparse.Namespace) -> int:
             input_path, selected, representatives_dir
         )
 
+    if artifacts_enabled and thumbnails_config.get("enabled", True):
+        preview_shots = [
+            shot
+            for shot in result["shots"]
+            if shot["status"] in {"selected", "rejected_gate", "rejected_floor"}
+        ]
+        written_thumbs = export_shot_thumbnails(
+            input_path,
+            preview_shots,
+            thumbs_dir,
+            max_dimension=int(thumbnails_config.get("max_dimension", 480)),
+            quality=int(thumbnails_config.get("quality", 80)),
+        )
+
+    artifacts["shot_thumbs_dir"] = thumbs_dir.as_posix() if written_thumbs else None
+
     if artifacts["boundaries_dir"] is not None:
         montages = render_boundary_montages(
             input_path,
@@ -520,6 +540,21 @@ def run(args: argparse.Namespace) -> int:
     warnings = list(validation.warnings)
     warnings.append(f"thresholds_calibration={CALIBRATION_LABEL}")
     warnings.append("artifact_metrics_not_measured (blockiness/banding/mosquito)")
+    expected_thumbs = len(
+        [
+            shot
+            for shot in result["shots"]
+            if shot["status"] in {"selected", "rejected_gate", "rejected_floor"}
+        ]
+    )
+    if not thumbnails_config.get("enabled", True):
+        warnings.append("shot_thumbnails_skipped (disabled in config)")
+    elif not artifacts_enabled:
+        warnings.append("shot_thumbnails_skipped (--no-artifacts)")
+    elif len(written_thumbs) < expected_thumbs:
+        warnings.append(
+            f"shot_thumbnails_incomplete ({len(written_thumbs)}/{expected_thumbs})"
+        )
     if analysis.get("enabled"):
         warnings.append(
             "analysis_resolution_resized_for_speed "
@@ -544,6 +579,7 @@ def run(args: argparse.Namespace) -> int:
         "samples_analyzed": len(samples),
         "source_duration_seconds": metadata.duration_seconds,
         "thumbnails_written": len(written_frames),
+        "shot_thumbs_written": len(written_thumbs),
         "boundary_montages_written": len(montages),
         "warnings": warnings,
         "calibration": config["hard_gates"].get("calibration", CALIBRATION_LABEL),

@@ -123,6 +123,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "shots_csv": True,
         "ui_json": True,
         "deterministic_gzip": True,
+        "thumbnails": {
+            "enabled": True,
+            "max_dimension": 480,
+            "quality": 80,
+            "note": "Small JPEG per recommended/discarded shot; bytes depend on the JPEG build",
+        },
     },
 }
 

@@ -68,6 +68,23 @@ def test_cli_end_to_end(tmp_path):
     assert (run_dir / "samples.csv.gz").exists()
     assert (run_dir / "shots.csv").exists()
 
+    # Every recommended or discarded shot gets a small preview for the simple gallery.
+    preview_shots = [
+        shot
+        for shot in ui["shots"]
+        if shot["status"] in {"selected", "rejected_gate", "rejected_floor"}
+    ]
+    assert preview_shots
+    assert ui["artifacts"]["shot_thumbs_dir"]
+    for shot in preview_shots:
+        thumb = Path(shot["thumb_path"])
+        assert thumb.exists()
+        assert thumb.suffix == ".jpg"
+        assert shot["thumb_width"] <= 480 and shot["thumb_height"] <= 480
+    for shot in ui["shots"]:
+        if shot["status"] == "passing_unselected":
+            assert "thumb_path" not in shot
+
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="synthetic sample not available")
 def test_cli_legacy_preset_uses_absolute_normalization(tmp_path):

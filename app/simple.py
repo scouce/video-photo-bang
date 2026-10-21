@@ -41,7 +41,14 @@ def preview_bytes(path: str, mtime: float, max_edge: int = PREVIEW_EDGE) -> byte
     return buffer.tobytes() if ok else b""
 
 
-@st.cache_data(show_spinner=False, max_entries=16)
+@st.cache_data(show_spinner=False, max_entries=256)
+def thumb_bytes(path: str, mtime: float) -> bytes:
+    """Raw JPEG thumbnail, already small enough for the gallery grid."""
+    del mtime
+    return Path(path).read_bytes()
+
+
+@st.cache_data(show_spinner=False, max_entries=4)
 def file_bytes(path: str, mtime: float) -> bytes:
     del mtime
     return Path(path).read_bytes()
@@ -56,15 +63,27 @@ def zip_bytes(paths: tuple[str, ...], names: tuple[str, ...]) -> bytes:
     return buffer.getvalue()
 
 
-def _image_path(shot: dict[str, Any]) -> str | None:
+def image_path_of(shot: dict[str, Any]) -> str | None:
+    """Full-resolution PNG, only written for the shots the user can take away."""
     path = shot.get("selected_frame_image_path")
     if path and Path(path).exists():
         return path
     return None
 
 
+def preview_of(shot: dict[str, Any]) -> bytes:
+    """Prefer the run's small JPEG; fall back to downscaling the full PNG in memory."""
+    thumb = shot.get("thumb_path")
+    if thumb and Path(thumb).exists():
+        return thumb_bytes(thumb, Path(thumb).stat().st_mtime)
+    full = image_path_of(shot)
+    if full:
+        return preview_bytes(full, Path(full).stat().st_mtime)
+    return b""
+
+
 def _card(shot: dict[str, Any]) -> None:
-    image_path = _image_path(shot)
+    image_path = image_path_of(shot)
     icon, text = copy_es.status_chip(shot["status"])
     rejected = shot["status"] in {"rejected_gate", "rejected_floor"}
     suffix = f" — {copy_es.discard_reason(shot)}" if rejected else ""
@@ -74,12 +93,9 @@ def _card(shot: dict[str, Any]) -> None:
         f"{copy_es.duration_label(shot['duration_seconds'])}"
     )
 
-    if image_path:
-        preview = preview_bytes(image_path, Path(image_path).stat().st_mtime)
-        if preview:
-            st.image(preview, width="stretch")
-        else:
-            st.warning("No se pudo leer la vista previa.")
+    preview = preview_of(shot)
+    if preview:
+        st.image(preview, width="stretch")
     else:
         st.caption("Sin vista previa en este run.")
 
@@ -181,7 +197,7 @@ def render_results(
     st.divider()
     downloads = st.columns([1, 1, 2])
     selected = [shot for shot in result["shots"] if shot["status"] == "selected"]
-    exportable = [(shot, _image_path(shot)) for shot in selected]
+    exportable = [(shot, image_path_of(shot)) for shot in selected]
     exportable = [(shot, path) for shot, path in exportable if path]
     if exportable:
         paths = tuple(path for _, path in exportable)

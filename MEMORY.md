@@ -85,8 +85,9 @@ Living record of decisions, status, and open items. Updated at the end of every 
 - Encapsulation rule: every friendly control writes the same explicit config fields; the
   client still reproduces the CLI ranking from the exported JSON.
 - Client modules: `app/ui.py` (shell), `app/simple.py` (simple mode), `app/copy_es.py`
-  (plain copy). The client downscales previews in memory until F1 precomputes thumbnails.
-- Decisions: F2 shipped before F1; thumbnails will cover recommended + discarded only;
+  (plain copy). Each recommended/discarded shot now gets a 480 px JPEG in
+  `media/thumbs/` (`export_shot_thumbnails`), so the gallery never decodes 4K PNGs.
+- Decisions: F2 shipped before F1; thumbnails cover recommended + discarded only;
   downloads are individual + ZIP + config.
 - Tests: `tests/test_ui_simple.py` covers default mode, card count, ZIP payload, discard
   filter, jargon leakage, preset/reset writes and the "why" sentence.

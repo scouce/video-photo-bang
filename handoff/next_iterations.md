@@ -10,15 +10,18 @@ and deterministic.
 - Modal "ficha" per shot: derived, jargon-free explanation plus the raw/normalized evidence.
 - Encapsulated sidebar (foto type, count, duplicate suppression) writing the same config.
 - `Técnico` mode keeps the six tabs; one config write path, one export.
+- 480 px JPEG preview per recommended and discarded shot (`media/thumbs/<shot_id>.jpg`),
+  so the gallery shows every card without decoding 4K PNGs.
 
 ## Next for the simple UI
 
-1. **F1 — thumbnails** for recommended + discarded shots (`media/thumbs/<shot_id>.jpg`,
-   480 px) so the discard cards stop showing "Sin vista previa en este run".
-2. **F3 — Ajustar page**: quality level (permisiva/estándar/exigente) mapped to explicit
+1. **F3 — Ajustar page**: quality level (permisiva/estándar/exigente) mapped to explicit
    gates, minimum duration, advanced weights, "¿Qué cambia exactamente?".
-3. **F4 — accessibility pass**: glossary surface, contrast/target-size check, screenshots.
-4. **Keyboard-first gallery**: per-card focus ring and `Enter` to open the ficha.
+2. **F4 — accessibility pass**: glossary surface, contrast/target-size check, screenshots.
+3. **Keyboard-first gallery**: per-card focus ring and `Enter` to open the ficha.
+4. **Classification review**: the discard reasons and the "Destaca por…" sentence are the
+   first place to look when a recommended shot feels wrong; the technical mode still holds
+   the raw values.
 
 ## Done in v0.2.0
 

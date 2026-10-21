@@ -19,11 +19,11 @@ client lives in `app/` and may use pandas/Streamlit; the core may not.
 | `artifacts.py` | `ui.json`, deterministic `samples.csv.gz`, `shots.csv`, run id | `run_id`, `run_directory`, `write_samples_csv`, `write_shots_csv`, `build_ui_document`, `write_ui_document` | RF-27, RF-28, RF-29 |
 | `labels.py` | Versioned annotation store: level A verdicts, boundary verdicts, level B pairs | `empty_labels`, `load_labels`, `save_labels`, `validate_labels`, `record_shot_label`, `record_boundary_label`, `record_pair_label`, `coverage` | RF-32, RF-34 |
 | `evaluation.py` | Precision/recall/NDCG, gate false rejects, dimension separation, pairwise accuracy | `evaluate`, `ndcg_at_k` | RF-33 |
-| `export.py` | Audit JSON, error JSON, full-resolution PNG export | `jsonable`, `utc_now_iso`, `write_json`, `build_output`, `build_error_output`, `export_representative_frames` | RF-1, RF-27, RF-35, RF-36 |
+| `export.py` | Audit JSON, error JSON, full-resolution PNG export, small per-shot JPEG previews | `jsonable`, `utc_now_iso`, `write_json`, `build_output`, `build_error_output`, `export_representative_frames`, `export_shot_thumbnails` | RF-1, RF-27, RF-35, RF-36 |
 | `cli.py` | Argument parsing and orchestration only; delegates all scoring | `build_parser`, `resolve_config`, `analysis_resolution`, `run`, `main` | RF-1 to RF-40 |
 | `scoring.py` | **Legacy, unused.** v0.1.0 four-dimension absolute formula kept for reference | — | — |
 | `app/ui.py` | Streamlit shell: run selection, mode switch, technical tabs, config build, detail dialog | `main`, `compute_result`, `build_config`, `shot_dialog`, `shot_detail_panel` | RF-30, RF-31 |
-| `app/simple.py` | Simple mode: gallery, previews, per-photo and ZIP downloads, encapsulated sidebar | `render_results`, `render_sidebar`, `preview_bytes`, `zip_bytes` | RF-30, RF-31 |
+| `app/simple.py` | Simple mode: gallery, previews, per-photo and ZIP downloads, encapsulated sidebar | `render_results`, `render_sidebar`, `preview_of`, `image_path_of`, `zip_bytes` | RF-30, RF-31 |
 | `app/copy_es.py` | Plain-language copy: preset labels, status chips, discard reasons, glossary, "why" sentence | `status_chip`, `discard_reason`, `why_sentence`, `clock`, `duration_label` | — |
 
 ## Data flow
@@ -63,6 +63,7 @@ then calls the same `build_shot_records` and `rank` used by the CLI.
 | `quality_floor` | enabled, 0.25 | Separate from gates. |
 | `diversity` | enabled, weight 0.25 | MMR over histogram similarity. |
 | `score_weights` | preset-dependent, sums to 1.0 | Renormalized over positive weights. |
+| `artifacts.thumbnails` | enabled, 480 px, JPEG 80 | One small preview per recommended/discarded shot; JPEG bytes depend on the codec build. |
 
 ## Tests
 
