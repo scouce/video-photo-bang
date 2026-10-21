@@ -1,5 +1,7 @@
 # MOV Shot Technical MVP
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://video-photo-bang-pdzq4ahkdbe3eqjwm6dars.streamlit.app/)
+
 Deterministic classical-DSP shot selection for local `.mov`, `.mp4`, `.m4v` and `.avi` files.
 The CLI samples frames, detects shot boundaries, measures technical metrics, scores eight
 dimensions, applies hard gates and a quality floor, and selects a Top-N that penalizes
