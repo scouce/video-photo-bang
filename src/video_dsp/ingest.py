@@ -91,10 +91,20 @@ def ffprobe_json(path: Path) -> dict[str, Any]:
         str(path),
     ]
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=True)
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding="utf-8",
+            errors="replace",
+        )
     except subprocess.CalledProcessError as exc:  # pragma: no cover - defensive
         raise IngestError(f"ffprobe failed: {exc.stderr.strip()}") from exc
-    return json.loads(completed.stdout)
+    stdout = completed.stdout
+    if stdout is None:
+        raise IngestError("ffprobe produced no output")
+    return json.loads(stdout)
 
 
 def parse_fps(value: str) -> float:
@@ -261,7 +271,8 @@ def ffprobe_version() -> str:
         return "unavailable"
     try:
         completed = subprocess.run(
-            [executable, "-version"], capture_output=True, text=True, check=True
+            [executable, "-version"], capture_output=True, text=True, check=True,
+            encoding="utf-8", errors="replace",
         )
         return completed.stdout.splitlines()[0].strip()
     except (subprocess.CalledProcessError, OSError):  # pragma: no cover - defensive
