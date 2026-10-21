@@ -30,8 +30,8 @@ def _app(run_dir) -> AppTest:
 
 def _technical(app: AppTest) -> AppTest:
     """The app opens in Simple mode; the technical checks switch explicitly."""
-    mode = next(radio for radio in app.sidebar.radio if radio.label == "Vista")
-    mode.set_value("Técnico")
+    mode = next(radio for radio in app.sidebar.radio if radio.label == "View")
+    mode.set_value("Technical")
     app.run()
     assert not app.exception, [error.message for error in app.exception]
     return app

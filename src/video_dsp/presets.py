@@ -26,9 +26,9 @@ def _weights(**values: float) -> dict[str, float]:
 
 PRESETS: dict[str, dict[str, Any]] = {
     "balanced_v1": {
-        "label_es": "Equilibrado v1 (legado 0.1.0)",
+        "label_es": "Balanced v1 (legado 0.1.0)",
         "description_es": (
-            "Fórmula original de 4 dimensiones con rangos absolutos. Reproduce el ranking "
+            "Original 4-dimension formula with absolute ranges. Reproduces the ranking "
             "del MVP 0.1.0; se conserva solo para comparar y auditar."
         ),
         "calibration": "legacy_v0_1_0",
@@ -43,10 +43,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": False, "min_total_score": 0.0},
     },
     "balanced_v2": {
-        "label_es": "Equilibrado v2 (por defecto)",
+        "label_es": "Balanced v2 (por defecto)",
         "description_es": (
-            "Ocho dimensiones con normalización por vídeo. Premia nitidez y exposición, "
-            "pero exige movimiento razonable, color y textura, y castiga duraciones extremas."
+            "Ocho dimensiones con normalisation por video. Premia sharpness y exposure, "
+            "pero exige motion razonable, color y texture, y castiga durationes extremas."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",
@@ -69,10 +69,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": True, "min_total_score": 0.25},
     },
     "portrait": {
-        "label_es": "Retrato / persona",
+        "label_es": "Portrait / person",
         "description_es": (
-            "Prioriza piel bien expuesta y tono de color sobre movimiento y duración. "
-            "Exige estabilidad y una nitidez mínima más alta."
+            "Prioritises well-exposed skin and colour tone over motion and duration. "
+            "Demands stability and a higher minimum sharpness."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",
@@ -96,10 +96,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": True, "min_total_score": 0.28},
     },
     "action": {
-        "label_es": "Acción / movimiento",
+        "label_es": "Action / motion",
         "description_es": (
-            "Premia movimiento y tolera más inestabilidad y jitter: el gesto importa más "
-            "que el pulso. Bandas de movimiento y paneo altas."
+            "Rewards motion and tolerates more instability and jitter: the gesture matters more "
+            "que el pulso. Bandas de motion y pan altas."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",
@@ -123,10 +123,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": True, "min_total_score": 0.22},
     },
     "landscape": {
-        "label_es": "Paisaje / escena",
+        "label_es": "Landscape / scene",
         "description_es": (
-            "Textura, contraste y color por encima de movimiento. Planos más largos y "
-            "nitidez mínima más exigente."
+            "Texture, contrast and colour over motion. Longer shots and "
+            "stricter sharpness minimum."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",
@@ -150,10 +150,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": True, "min_total_score": 0.25},
     },
     "low_light": {
-        "label_es": "Baja luz / nocturno",
+        "label_es": "Low light / night",
         "description_es": (
-            "Planos largos y quietos, como una exposición nocturna: premia estabilidad y "
-            "nitidez, acepta negros profundos y no premia el color vivo."
+            "Long, quiet shots like a night exposure: rewards stability and "
+            "sharpness, accepts deep blacks and does not reward vivid colour."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",
@@ -181,10 +181,10 @@ PRESETS: dict[str, dict[str, Any]] = {
         "quality_floor": {"enabled": True, "min_total_score": 0.24},
     },
     "shorts": {
-        "label_es": "Clips cortos / redes",
+        "label_es": "Short clips / social",
         "description_es": (
-            "Banda de duración corta (1-4 s) y movimiento ágil; los planos largos se "
-            "rechazan aunque estén bien medidos."
+            "Short duration band (1-4 s) and agile motion; long shots "
+            "rejects even well-measured ones."
         ),
         "calibration": "initial_uncalibrated",
         "normalization_method": "per_video_percentile",

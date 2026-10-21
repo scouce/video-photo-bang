@@ -2,7 +2,7 @@
 
 Frames are decoded sequentially so that frame indices and timestamps are exact and the
 pipeline stays deterministic. Only metrics are retained; decoded pixels are released
-immediately to keep memory bounded.
+immeantely to keep memory bounded.
 """
 
 from __future__ import annotations

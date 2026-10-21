@@ -30,14 +30,14 @@ DIMENSION_ORDER: tuple[str, ...] = (
     "duration",
 )
 
-ANALYSIS = "resolución de análisis"
+ANALYSIS = "resolution de analysis"
 
 
 def _percentile_metric(label: str, description: str) -> dict[str, Any]:
     """Build a luminance-percentile field entry (seven of them share this shape)."""
     return {
         "label_es": label,
-        "unit_es": "luminancia [0,1]",
+        "unit_es": "luminance [0,1]",
         "description_es": description,
         "aggregation": "median",
         "measured_on": ANALYSIS,
@@ -46,123 +46,123 @@ def _percentile_metric(label: str, description: str) -> dict[str, Any]:
 
 FIELD_CATALOG: dict[str, dict[str, Any]] = {
     "variance_laplacian": {
-        "label_es": "Varianza del Laplaciano",
-        "unit_es": "var(Laplaciano), escala 0-255 del plano Y",
+        "label_es": "Variance of the Laplacian",
+        "unit_es": "var(Laplaciano), scale 0-255 del shot Y",
         "description_es": (
-            "Energía de alta frecuencia. Proxy clásico de nitidez; "
-            "sube con el detalle fino."
+            "High-frequency energy. Classic sharpness proxy; "
+            "sube con el fine detail."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "tenengrad": {
         "label_es": "Tenengrad",
-        "unit_es": "media(∇²), escala 0-255",
+        "unit_es": "mean(∇²), scale 0-255",
         "description_es": (
-            "Magnitud media del gradiente de Sobel al cuadrado. Segundo proxy de foco."
+            "Mean squared Sobel gradient magnitude. Second focus proxy."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "edge_density": {
-        "label_es": "Densidad de bordes",
-        "unit_es": "fracción de píxeles [0,1]",
+        "label_es": "Densidad de edges",
+        "unit_es": "fraction of pixels [0,1]",
         "description_es": (
-            "Proporción de píxeles marcados por Canny. Detecta planos vacíos o "
-            "texturados."
+            "Proportion of pixels marked by Canny. Detects empty or "
+            "texturedos."
         ),
         "aggregation": "mean",
         "measured_on": ANALYSIS,
     },
     "mean": {
-        "label_es": "Luminancia media",
-        "unit_es": "luminancia [0,1]",
+        "label_es": "Mean luminance",
+        "unit_es": "luminance [0,1]",
         "description_es": (
-            "Media del plano Y. Se usa para el desvío respecto del gris medio."
+            "Median luminance of shot Y. Used for the deviation from mid-grey.",
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "std": {
-        "label_es": "Desvío de luminancia",
-        "unit_es": "luminancia [0,1]",
+        "label_es": "Luminance deviation",
+        "unit_es": "luminance [0,1]",
         "description_es": (
-            "Contraste global del plano. Bajo = plano lavado; alto = contraste duro."
+            "Contrast global del shot. Bajo = shot lavado; alto = contrast duro."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
-    "p01": _percentile_metric("Percentil 1", "Sombra profunda."),
+    "p01": _percentile_metric("Percentile 1", "Deep shadow."),
     "p05": _percentile_metric("Percentil 5", "Sombra."),
     "p25": _percentile_metric("Percentil 25", "Cuarto inferior."),
-    "p50": _percentile_metric("Percentil 50", "Mediana."),
+    "p50": _percentile_metric("Percentile 50", "Median."),
     "p75": _percentile_metric("Percentil 75", "Cuarto superior."),
-    "p95": _percentile_metric("Percentil 95", "Alta luz."),
-    "p99": _percentile_metric("Percentil 99", "Alta luz extrema."),
+    "p95": _percentile_metric("Percentil 95", "Alta light."),
+    "p99": _percentile_metric("Percentil 99", "Alta light extrema."),
     "black_clip": {
-        "label_es": "Recorte de negros",
-        "unit_es": "fracción de píxeles [0,1]",
+        "label_es": "Recorte de blacks",
+        "unit_es": "fraction of pixels [0,1]",
         "description_es": (
-            "Píxeles por debajo de ``clip_low``. Recorte irrecuperable."
+            "Pixels below ``clip_low``. Unrecoverable clipping."
         ),
         "aggregation": "mean",
         "measured_on": ANALYSIS,
     },
     "white_clip": {
-        "label_es": "Recorte de blancos",
-        "unit_es": "fracción de píxeles [0,1]",
+        "label_es": "Recorte de whites",
+        "unit_es": "fraction of pixels [0,1]",
         "description_es": (
-            "Píxeles por encima de ``clip_high``. Recorte irrecuperable."
+            "Pixels above ``clip_high``. Unrecoverable clipping."
         ),
         "aggregation": "mean",
         "measured_on": ANALYSIS,
     },
     "entropy": {
-        "label_es": "Entropía del histograma",
+        "label_es": "Histogram entropy",
         "unit_es": "bits normalizados [0,1]",
         "description_es": (
-            "Riqueza tonal. Bajo = plano plano o quemado; alto = distribución amplia."
+            "Riqueza tonal. Bajo = shot shot o clipped; alto = distribution amplia."
         ),
         "aggregation": "median",
         "measured_on": "histograma de 64 bins",
     },
     "local_contrast": {
-        "label_es": "Contraste local",
-        "unit_es": "std de luminancia por bloque 8x8 [0,1]",
+        "label_es": "Contrast local",
+        "unit_es": "std de luminance por bloque 8x8 [0,1]",
         "description_es": (
-            "Microcontraste textural. Distingue detalle real de una imagen suave."
+            "Microcontrast texturel. Distingue detail real de una imagen suave."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "saturation_mean": {
-        "label_es": "Saturación media",
-        "unit_es": "saturación HSV [0,1]",
+        "label_es": "Mean saturation",
+        "unit_es": "saturation HSV [0,1]",
         "description_es": (
-            "Croma medio. Ni gris ni neón; se puntúa contra una banda objetivo."
+            "Mean chroma. Neither grey nor neon; scored against a target band."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "saturation_std": {
-        "label_es": "Dispersión de saturación",
-        "unit_es": "saturación HSV [0,1]",
-        "description_es": "Variedad de color dentro del plano.",
+        "label_es": "Saturation dispersion",
+        "unit_es": "saturation HSV [0,1]",
+        "description_es": "Variedad de color dentro del shot.",
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "colorfulness": {
         "label_es": "Colorfulness (Hasler-Süsstrunk)",
-        "unit_es": "índice normalizado, típico 0.0-0.5",
+        "unit_es": "normalised index, typically 0.0-0.5",
         "description_es": (
-            "Combinación de varianza y media de los ejes rojo-verde y amarillo-azul."
+            "Combination of variance and mean of the red-green and yellow-blue axes."
         ),
         "aggregation": "median",
         "measured_on": ANALYSIS,
     },
     "channel_cast": {
         "label_es": "Dominante de canal",
-        "unit_es": "diferencia máxima entre medias de canal [0,1]",
+        "unit_es": "diferencia maximum entre means de canal [0,1]",
         "description_es": (
             "Desbalance de color global. Alto = dominante fuerte o balance malo."
         ),
@@ -170,13 +170,13 @@ FIELD_CATALOG: dict[str, dict[str, Any]] = {
         "measured_on": ANALYSIS,
     },
     "instability": {
-        "label_es": "Inestabilidad interna",
-        "unit_es": "distancia combinada media por par de muestras",
+        "label_es": "Instability interna",
+        "unit_es": "distancia combinada mean por par de samples",
         "description_es": (
-            "Cambio interno del plano: movimiento, parpadeo o ruido de exposición."
+            "Cambio interno del shot: motion, parpadeo o noise de exposure."
         ),
         "aggregation": "mean of pairwise distances",
-        "measured_on": "muestras a analysis_fps",
+        "measured_on": "samples a analysis_fps",
     },
     "motion_per_second": {
         "label_es": "Cambio por segundo",
@@ -185,73 +185,73 @@ FIELD_CATALOG: dict[str, dict[str, Any]] = {
             "Ritmo de cambio visual. Escala con ``analysis_fps`` para ser comparable."
         ),
         "aggregation": "mean of pairwise distances / dt",
-        "measured_on": "muestras a analysis_fps",
+        "measured_on": "samples a analysis_fps",
     },
     "translation_consistency": {
-        "label_es": "Coherencia de traslación",
-        "unit_es": "coherencia vectorial [0,1]",
+        "label_es": "Coherencia de translation",
+        "unit_es": "coherence vectorial [0,1]",
         "description_es": (
-            "1 = movimiento en una sola dirección (paneo limpio); "
-            "0 = dirección aleatoria (trípode inestable)."
+            "1 = motion in a single direction (clean pan); "
+            "0 = random direction (unstable tripod)."
         ),
         "aggregation": "vector coherence |sum(v)| / sum(|v|)",
-        "measured_on": "thumbnail de movimiento, lado mayor 96 px",
+        "measured_on": "thumbnail de motion, lado mayor 96 px",
     },
     "jitter_px": {
         "label_es": "Jitter",
-        "unit_es": "px por par de muestras",
+        "unit_es": "px por par de samples",
         "description_es": (
-            "Desvío de la aceleración de traslación. Proxy de temblor de mano."
+            "Deviation of translation acceleration. Proxy for hand shake."
         ),
         "aggregation": "std of translation deltas",
-        "measured_on": "thumbnail de movimiento, lado mayor 96 px",
+        "measured_on": "thumbnail de motion, lado mayor 96 px",
     },
     "pan_speed_px_s": {
-        "label_es": "Velocidad de paneo",
-        "unit_es": "px/s en el thumbnail de movimiento",
-        "description_es": "Mediana de la magnitud de traslación por segundo.",
+        "label_es": "Velocidad de pan",
+        "unit_es": "px/s en el thumbnail de motion",
+        "description_es": "Mediana de la magnitud de translation por segundo.",
         "aggregation": "median magnitude / dt",
-        "measured_on": "thumbnail de movimiento, lado mayor 96 px",
+        "measured_on": "thumbnail de motion, lado mayor 96 px",
     },
     "phase_response": {
         "label_es": "Confianza de fase",
         "unit_es": "respuesta de phaseCorrelate [0,1]",
         "description_es": (
-            "Fiabilidad de la estimación de traslación. Baja en planos sin textura."
+            "Reliability of the translation estimate. Low on shots without texture."
         ),
         "aggregation": "median",
-        "measured_on": "thumbnail de movimiento",
+        "measured_on": "thumbnail de motion",
     },
     "duration_seconds": {
-        "label_es": "Duración del plano",
+        "label_es": "Duration del shot",
         "unit_es": "segundos",
         "description_es": (
-            "Duración medida entre la primera y la última muestra del plano."
+            "Duration measured between the first and last sample of the shot."
         ),
         "aggregation": "end - start",
-        "measured_on": "timestamps de muestra",
+        "measured_on": "timestamps de sample",
     },
     "clip_total": {
         "label_es": "Recorte total",
-        "unit_es": "fracción de píxeles [0,1]",
+        "unit_es": "fraction of pixels [0,1]",
         "description_es": "``black_clip + white_clip``, acotado a 1.",
         "aggregation": "derived",
         "measured_on": ANALYSIS,
     },
     "midtone_dev": {
-        "label_es": "Desvío de tono medio",
+        "label_es": "Midtone deviation",
         "unit_es": "[0,1], 0 = centrado en 0.5",
         "description_es": (
-            "``2 * |mean - 0.5|``. Penaliza planos subexpuestos o pasados de luz."
+            "``2 * |mean - 0.5|``. Penaliza shots subexpuestos o pasados de light."
         ),
         "aggregation": "derived",
         "measured_on": ANALYSIS,
     },
     "dynamic_range": {
-        "label_es": "Rango dinámico útil",
-        "unit_es": "luminancia [0,1]",
+        "label_es": "Useful dynamic range",
+        "unit_es": "luminance [0,1]",
         "description_es": (
-            "``p95 - p05``. Contraste sin contaminar por outliers extremos."
+            "``p95 - p05``. Contrast sin contaminar por outliers extremos."
         ),
         "aggregation": "derived",
         "measured_on": ANALYSIS,
@@ -260,9 +260,9 @@ FIELD_CATALOG: dict[str, dict[str, Any]] = {
 
 DIMENSIONS: dict[str, dict[str, Any]] = {
     "sharpness": {
-        "label_es": "Nitidez",
+        "label_es": "Sharpness",
         "description_es": (
-            "Foco real: energía de alta frecuencia medida sobre el plano Y."
+            "Real focus: high-frequency energy measured on the Y plane."
         ),
         "components": [
             {
@@ -285,10 +285,10 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         "fallback_components": [],
     },
     "exposure": {
-        "label_es": "Exposición",
+        "label_es": "Exposure",
         "description_es": (
             "Recorte irrecuperable y centrado del tono medio. "
-            "Fórmula absoluta, no percentil."
+            "Absolute formula, not percentile."
         ),
         "components": [
             {
@@ -313,9 +313,9 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         "fallback_components": [],
     },
     "contrast": {
-        "label_es": "Contraste",
+        "label_es": "Contrast",
         "description_es": (
-            "Desvío global y rango útil. Evita planos lavados o duros sin matices."
+            "Global deviation and useful range. Avoids washed-out or harsh shots without detail."
         ),
         "components": [
             {
@@ -338,10 +338,10 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         "fallback_components": [],
     },
     "stability": {
-        "label_es": "Estabilidad",
+        "label_es": "Stability",
         "description_es": (
-            "Paneo limpio frente a temblor. Usa traslación de fase; si no es fiable, "
-            "cae a inestabilidad y lo registra."
+            "Paneo limpio frente a shake. Usa translation de fase; si no es fiable, "
+            "cae a instability y lo registra."
         ),
         "components": [
             {
@@ -373,10 +373,10 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         ],
     },
     "motion": {
-        "label_es": "Movimiento",
+        "label_es": "Motion",
         "description_es": (
-            "Cantidad de movimiento contra una banda objetivo: "
-            "ni plano muerto ni caos."
+            "Cantidad de motion contra una banda objetivo: "
+            "ni shot muerto ni caos."
         ),
         "components": [
             {
@@ -401,7 +401,7 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
     "color": {
         "label_es": "Color",
         "description_es": (
-            "Riqueza de croma, saturación razonable y ausencia de dominante."
+            "Riqueza de croma, saturation razonable y ausencia de dominante."
         ),
         "components": [
             {
@@ -432,10 +432,10 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         "fallback_components": [],
     },
     "texture": {
-        "label_es": "Textura",
+        "label_es": "Texture",
         "description_es": (
-            "Riqueza tonal y microcontraste. Premia imágenes con información, "
-            "no planos vacíos."
+            "Tonal richness and micro-contrast. Rewards images with information, "
+            "no empty shots."
         ),
         "components": [
             {
@@ -458,9 +458,9 @@ DIMENSIONS: dict[str, dict[str, Any]] = {
         "fallback_components": [],
     },
     "duration": {
-        "label_es": "Duración",
+        "label_es": "Duration",
         "description_es": (
-            "Duración del plano contra una banda objetivo del preset."
+            "Duration del shot contra una banda objetivo del preset."
         ),
         "components": [
             {

@@ -41,7 +41,7 @@ def test_store_upload_hashes_and_dedupes(tmp_path, monkeypatch):
 
 def test_store_upload_rejects_unknown_extension(tmp_path, monkeypatch):
     monkeypatch.setattr(upload, "UPLOADS_DIR", tmp_path)
-    with pytest.raises(upload.UploadError, match="Formato no admitido"):
+    with pytest.raises(upload.UploadError, match="Unsupported format"):
         upload.store_upload(FakeUpload(b"x", "notes.txt"))
     assert not list(tmp_path.iterdir())
 
@@ -56,7 +56,7 @@ def test_store_local_does_not_copy(tmp_path):
 
 
 def test_store_local_rejects_a_missing_file(tmp_path):
-    with pytest.raises(upload.UploadError, match="no existe|No existe"):
+    with pytest.raises(upload.UploadError, match="does not exist"):
         upload.store_local(str(tmp_path / "nope.mov"))
 
 

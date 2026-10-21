@@ -16,7 +16,7 @@ import pytest
 
 pytest.importorskip("streamlit")
 
-import copy_es  # noqa: E402
+import copy_ui as copy  # noqa: E402
 import simple  # noqa: E402
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
@@ -52,20 +52,20 @@ def _plain_text(app: AppTest) -> str:
 def test_simple_mode_is_the_default(run_dir):
     del run_dir
     app = _app()
-    mode = next(radio for radio in app.sidebar.radio if radio.label == "Vista")
+    mode = next(radio for radio in app.sidebar.radio if radio.label == "View")
     assert mode.value == "Simple"
     assert not [metric for metric in app.metric if metric.label == "Planos"]
-    assert any(title.value == "Tus fotos" for title in app.title)
+    assert any(title.value == "Your photos" for title in app.title)
 
 
 def test_gallery_has_one_card_per_recommended_shot(run_dir):
     del run_dir
     app = _app()
-    fichas = [button for button in app.button if button.label == "Ver ficha"]
+    fichas = [button for button in app.button if button.label == "View details"]
     downloads = [
         button
         for button in app.download_button
-        if button.label in {"Descargar foto", "Descargar vista previa"}
+        if button.label in {"Download photo", "Download preview"}
     ]
     assert len(fichas) >= 1
     assert len(downloads) == len(fichas)
@@ -75,9 +75,9 @@ def test_main_page_offers_both_zips_and_config(run_dir):
     del run_dir
     app = _app()
     labels = [button.label for button in app.download_button]
-    assert any("calidad completa" in label for label in labels)
-    assert any("ligera" in label for label in labels)
-    assert any("configuración" in label for label in labels)
+    assert any("full quality" in label for label in labels)
+    assert any("light" in label for label in labels)
+    assert any("configuration" in label for label in labels)
 
 
 def test_download_prefers_the_full_jpeg(run_dir):
@@ -88,7 +88,7 @@ def test_download_prefers_the_full_jpeg(run_dir):
         path, mime, label = simple.download_of(shot)
         assert Path(path) == Path(shot["photo_path"])
         assert mime == "image/jpeg"
-        assert label == "Descargar foto"
+        assert label == "Download photo"
         assert Path(path).stat().st_size > 0
 
 
@@ -106,7 +106,7 @@ def test_download_falls_back_to_the_preview_for_rejected_shots(run_dir):
     path, mime, label = simple.download_of(legacy)
     assert Path(path) == Path(legacy["thumb_path"])
     assert mime == "image/jpeg"
-    assert label == "Descargar vista previa"
+    assert label == "Download preview"
 
 
 def test_the_full_jpeg_is_smaller_than_the_png(run_dir):
@@ -136,14 +136,14 @@ def test_zip_contains_the_recommended_pngs(run_dir):
 def test_discard_filter_shows_rejected_shots(run_dir):
     del run_dir
     app = _app()
-    view = next(radio for radio in app.radio if radio.label == "Mostrar")
-    view.set_value("Descartados")
+    view = next(radio for radio in app.radio if radio.label == "Show")
+    view.set_value("Discarded")
     app.run()
     assert not app.exception, [error.message for error in app.exception]
     chips = [
         markdown.value
         for markdown in app.markdown
-        if "Descartado" in markdown.value or "Recomendado" in markdown.value
+        if "Discarded" in markdown.value or "Recommended" in markdown.value
     ]
     assert any(value.startswith("⛔") for value in chips)
     assert not any(value.startswith("✅") for value in chips)
@@ -161,7 +161,7 @@ def test_switching_preset_writes_the_config(run_dir):
     del run_dir
     app = _app()
     picker = next(
-        box for box in app.sidebar.selectbox if box.label == "Tipo de foto"
+        box for box in app.sidebar.selectbox if box.label == "Type of photo"
     )
     picker.set_value("landscape")
     app.run()
@@ -173,11 +173,11 @@ def test_reset_returns_to_the_run_config(run_dir):
     del run_dir
     app = _app()
     picker = next(
-        box for box in app.sidebar.selectbox if box.label == "Tipo de foto"
+        box for box in app.sidebar.selectbox if box.label == "Type of photo"
     )
     picker.set_value("low_light")
     app.run()
-    reset = next(button for button in app.sidebar.button if button.label == "Restablecer")
+    reset = next(button for button in app.sidebar.button if button.label == "Reset")
     reset.click()
     app.run()
     assert not app.exception, [error.message for error in app.exception]
@@ -208,14 +208,13 @@ def test_why_sentence_is_deterministic_and_plain(run_dir):
             "duration": 0.0,
         },
     }
-    first = copy_es.why_sentence(shot, shot["score_weights_effective"])
-    second = copy_es.why_sentence(shot, shot["score_weights_effective"])
+    first = copy.why_sentence(shot, shot["score_weights_effective"])
+    second = copy.why_sentence(shot, shot["score_weights_effective"])
     assert first == second
-    assert first.startswith("Destaca por su")
-    assert "duration" not in first and "sharpness" not in first
-    assert "Lo más flojo: estabilidad." in first
+    assert first.startswith("Stands out for its")
+    assert "Weakest point: stability." in first
 
 
-def test_clock_and_duration_use_spanish_notation():
-    assert copy_es.clock(78.4) == "1:18"
-    assert copy_es.duration_label(3.6) == "3,6 s"
+def test_clock_and_duration_use_plain_notation():
+    assert copy.clock(78.4) == "1:18"
+    assert copy.duration_label(3.6) == "3.6 s"

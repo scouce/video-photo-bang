@@ -97,7 +97,7 @@ Living record of decisions, status, and open items. Updated at the end of every 
 
 - Two modes, default **Simple**: gallery with preview + per-photo PNG download, ZIP of the
   recommended shots, config JSON download, and a modal "ficha" with a derived, jargon-free
-  explanation. **Técnico** keeps the six tabs unchanged.
+  explanation. **Technical** keeps the six tabs unchanged.
 - Encapsulation rule: every friendly control writes the same explicit config fields; the
   client still reproduces the CLI ranking from the exported JSON.
 - Client modules: `app/ui.py` (shell), `app/simple.py` (simple mode), `app/copy_es.py`

@@ -216,7 +216,7 @@ def mad_threshold(
 
 def find_local_maxima(values: np.ndarray, threshold: float, window: int) -> list[int]:
     """Indices that exceed ``threshold``, are maximal within ``+/- window``, and are
-    strictly higher than at least one immediate neighbor (so flat plateaus yield a
+    strictly higher than at least one immeante neighbor (so flat plateaus yield a
     single candidate rather than one per frame)."""
     count = len(values)
     peaks: list[int] = []

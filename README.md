@@ -30,7 +30,7 @@ Fast smoke test:
 .\.venv\Scripts\python.exe -m video_dsp.cli samples\synthetic_test.mov --run-dir out\runs\synthetic
 ```
 
-## Primera ejecución
+## First run
 
 ```powershell
 py -3.14 -m venv .venv
@@ -39,12 +39,11 @@ py -3.14 -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app/ui.py
 ```
 
-La app arranca **vacía**: no hay vídeos ni fotos precargados. En la pantalla de inicio
-aparece un cargador de vídeos (o un campo de ruta local). Sube un `.mov`/`.mp4`/… o
-pega la ruta de un archivo que ya esté en tu equipo; el análisis se ejecuta en segundo
-plano y el run aparece en el selector al terminar. La primera ejecución sobre un clip
-4K tarda unos minutos; los resultados se guardan en `out/runs/` (ignorado por git, solo
-local).
+The app starts **empty**: no videos or photos are preloaded. On the start screen
+an uploader appears (or a local path field). Upload a `.mov`/`.mp4`/… or paste the
+path of a file already on your machine; the analysis runs in the background and the
+run appears in the selector when it finishes. The first run on a 4K clip takes a few
+minutes; results are stored in `out/runs/` (gitignored, local only).
 
 Para uso sin interfaz:
 
@@ -61,23 +60,23 @@ Para uso sin interfaz:
 
 Two modes, one client, one config:
 
-**Simple** (default) answers three questions ("tipo de foto", "cuántas fotos", "¿evitar
+**Simple** (default) answers three questions ("type of photo", "how many photos", "avoid
 repetidos?") and shows a gallery of the recommended shots with a preview and a download
 button per photo, two bulk ZIPs (a light 480 px one and the full-resolution JPEGs) and the
 config JSON. It also accepts a new video: drop a `.mov`/`.mp4`/… into the uploader or paste
-a local path, and the run is created on the spot. "Ver ficha" opens a
+a local path, and the run is created on the spot. "View details" opens a
 plain-language explanation derived from the ranking; the raw evidence stays one click away.
 
-**Técnico** keeps the six tabs:
+**Technical** keeps the six tabs:
 
 | Tab | What it answers |
 | --- | --- |
-| Calibración | Does my preference change the Top-N? What is driving the score? |
-| Ranking y gates | Why was this shot rejected, and with which value against which threshold? |
-| Fronteras | Is each detected cut real? Is the video over-segmented? |
-| Distribuciones | What ranges are being used, and where does this shot sit in them? |
-| Resumen | What did the run produce, and how does it score against my labels? |
-| Auditoría | Exact config, pipeline versions, field catalog, normalization table. |
+| Calibration | Does my preference change the Top-N? What is driving the score? |
+| Ranking and gates | Why was this shot rejected, and with which value against which threshold? |
+| Boundaries | Is each detected cut real? Is the video over-segmented? |
+| Distributions | What ranges are being used, and where does this shot sit in them? |
+| Summary | What did the run produce, and how does it score against my labels? |
+| Audit | Exact config, pipeline versions, field catalog, normalization table. |
 
 Both modes write the same config, so the sidebar export reproduces the exact ranking from
 the command line with `--config`.
@@ -122,7 +121,7 @@ duration. Each dimension blends declarative components defined in `metrics_spec.
   monotonic transform. When there are too few shots or the spread is degenerate, the
   service falls back to the absolute config ranges and records why.
 - **Gates and target bands are always absolute**: they express a hard limit or a
-  preference, so a percentile would be meaningless.
+  preference, so a percentilee would be meaningless.
 - `balanced_v1` keeps the absolute ranges so the v0.1.0 ranking stays reproducible.
 - Near-duplicates are pushed out of the Top-N by MMR over Bhattacharyya histogram
   similarity; displaced shots are reported by name.

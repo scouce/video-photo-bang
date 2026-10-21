@@ -13,7 +13,7 @@ If a requirement conflicts with this document, the constitution wins.
    the core pipeline. The MVP is a *technical draft selector*, never a final editorial choice.
 4. **No hidden enhancement.** Do not apply sharpening, denoising, tone mapping, upscaling, or
    any other transform before measurement unless it is explicitly documented and recorded.
-5. **Robust aggregation.** Use median / percentiles for spatial metrics and avoid naive means
+5. **Robust aggregation.** Use median / percentilees for spatial metrics and avoid naive means
    when outliers are expected. Aggregation strategy must be recorded in the output.
 6. **Safe failure.** Invalid files, unsupported codecs, missing streams, or decoding errors must
    produce structured errors and a JSON error document, never an unhandled crash or a silent

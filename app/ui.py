@@ -27,7 +27,7 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 import altair as alt
-import copy_es
+import copy_ui as copy_text
 import pandas as pd
 import simple
 import streamlit as st
@@ -51,22 +51,22 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNS_DIR = Path(os.environ.get("VIDEO_DSP_RUNS_DIR", ROOT / "out" / "runs"))
 
 STATUS_ES = {
-    "selected": "Seleccionado",
-    "passing_unselected": "Pasa, no elegido",
-    "rejected_gate": "Rechazado por gate",
-    "rejected_floor": "Bajo el piso de calidad",
+    "selected": "Selected",
+    "passing_unselected": "Passes, not chosen",
+    "rejected_gate": "Rejected by gate",
+    "rejected_floor": "Below quality floor",
 }
 
 STATUS_ORDER = ["selected", "passing_unselected", "rejected_gate", "rejected_floor"]
 
 GATE_LABELS = {
-    "min_sharpness_score": ("Nitidez mínima", "[0,1]", 0.0, 1.0, 0.01),
-    "max_black_clip": ("Recorte de negros máx.", "fracción [0,1]", 0.0, 1.0, 0.01),
-    "max_white_clip": ("Recorte de blancos máx.", "fracción [0,1]", 0.0, 1.0, 0.01),
-    "max_instability": ("Inestabilidad máx.", "distancia [0,1]", 0.0, 1.0, 0.01),
-    "max_jitter_px": ("Jitter máx.", "px por par", 0.0, 20.0, 0.1),
-    "min_shot_duration_s": ("Duración mínima", "segundos", 0.0, 10.0, 0.1),
-    "max_shot_duration_s": ("Duración máxima", "segundos", 0.0, 60.0, 0.5),
+    "min_sharpness_score": ("Sharpness minimum", "[0,1]", 0.0, 1.0, 0.01),
+    "max_black_clip": ("Max black clip", "fraction [0,1]", 0.0, 1.0, 0.01),
+    "max_white_clip": ("Max white clip", "fraction [0,1]", 0.0, 1.0, 0.01),
+    "max_instability": ("Max instability", "distance [0,1]", 0.0, 1.0, 0.01),
+    "max_jitter_px": ("Max jitter", "px per pair", 0.0, 20.0, 0.1),
+    "min_shot_duration_s": ("Duration minimum", "segundos", 0.0, 10.0, 0.1),
+    "max_shot_duration_s": ("Duration maximum", "segundos", 0.0, 60.0, 0.5),
 }
 
 TARGET_ORDER = (
@@ -77,10 +77,10 @@ TARGET_ORDER = (
 )
 
 TARGET_LABELS = {
-    "duration_seconds": "Duración",
+    "duration_seconds": "Duration",
     "motion_per_second": "Cambio por segundo",
-    "pan_speed_px_s": "Velocidad de paneo",
-    "saturation_mean": "Saturación",
+    "pan_speed_px_s": "Velocidad de pan",
+    "saturation_mean": "Saturation",
 }
 
 
@@ -101,7 +101,7 @@ def load_image(path: str, mtime: float) -> bytes:
     return Path(path).read_bytes()
 
 
-@st.cache_data(show_spinner="Cargando muestras…")
+@st.cache_data(show_spinner="Cargando samples…")
 def load_samples(path: str) -> list[dict[str, Any]]:
     """Rebuild the sample list from ``samples.csv.gz`` (metrics + histogram)."""
     frame = pd.read_csv(path)
@@ -245,7 +245,7 @@ def shots_frame(result: dict[str, Any], catalog: dict[str, Any]) -> pd.DataFrame
     for shot in result["shots"]:
         row = {
             "orden": shot.get("rank"),
-            "plano": shot["shot_id"],
+            "shot": shot["shot_id"],
             "inicio": round(shot["start_time_seconds"], 2),
             "fin": round(shot["end_time_seconds"], 2),
             "dur": round(shot["duration_seconds"], 2),
@@ -255,7 +255,7 @@ def shots_frame(result: dict[str, Any], catalog: dict[str, Any]) -> pd.DataFrame
             row[catalog[dimension]["label_es"]] = round(
                 shot["dimension_scores"][dimension], 3
             )
-        row["estado"] = STATUS_ES.get(shot["status"], shot["status"])
+        row["status"] = STATUS_ES.get(shot["status"], shot["status"])
         row["motivo"] = shot.get("selection_reason", "")
         rows.append(row)
     return pd.DataFrame(rows)
@@ -306,16 +306,16 @@ def component_rows(
                 raw = shot["metrics"].get(metric)
                 rows.append(
                     {
-                        "dimensión": entry["label_es"],
+                        "dimension": entry["label_es"],
                         "componente": component["label_es"],
                         "variable": metric,
-                        "unidad": component["unit_es"],
+                        "unit": component["unit_es"],
                         "bruto": None if raw is None else round(float(raw), 4),
                         "normalizado": round(float(scored[component_id]), 4),
                         "modo": component["mode"],
-                        "método": component["method"],
-                        "mín": round(float(component["low"]), 4),
-                        "máx": round(float(component["high"]), 4),
+                        "method": component["method"],
+                        "min": round(float(component["low"]), 4),
+                        "max": round(float(component["high"]), 4),
                         "origen": component["source"],
                     }
                 )
@@ -333,25 +333,25 @@ def warning_banner(document: dict[str, Any], result: dict[str, Any]) -> None:
         pairwise = (evaluation.get("pairwise") or {}).get("accuracy")
         pieces = []
         if precision is not None:
-            pieces.append(f"precisión@N = {precision:.2f}")
+            pieces.append(f"precision@N = {precision:.2f}")
         if pairwise is not None:
-            pieces.append(f"acierto parejas = {pairwise:.0%}")
-        headline = ", ".join(pieces) if pieces else "medida disponible"
+            pieces.append(f"hit pairs = {pairwise:.0%}")
+        headline = ", ".join(pieces) if pieces else "measurement disponible"
         st.info(
-            f"Calibración **medida con tus etiquetas**: {headline}. Los umbrales siguen "
-            "siendo `initial_uncalibrated` hasta que se promuevan; consulta *Resumen* "
-            "para el detalle y para decidir si subirlos."
+            f"Calibration **measurement con tus labels**: {headline}. Los thresholds siguen "
+            "siendo `initial_uncalibrated` until they are promoted; see *Summary* "
+            "for details y to decide whether to promote them."
         )
     elif calibration == "initial_uncalibrated":
         st.info(
-            "Umbrales **sin calibrar** (`initial_uncalibrated`). Los números son "
-            "coherentes entre sí, pero no están validados contra criterio humano. "
-            "Etiqueta planos en *Ranking y gates* y relanza el CLI con `--labels` "
-            "para medir cuánto se acercan."
+            "Thresholds **uncalibrated** (`initial_uncalibrated`). The numbers are "
+            "consistent with each other, pero not validated against human judgement. "
+            "Label shots en *Ranking and gates* and re-run the CLI with `--labels` "
+            "to measure how close they are."
         )
-    with st.expander(f"Avisos del run ({len(unique)})", expanded=False):
+    with st.expander(f"Run warnings ({len(unique)})", expanded=False):
         if not unique:
-            st.caption("Sin avisos.")
+            st.caption("No warnings.")
         for warning in unique:
             st.markdown(f"- `{warning}`")
 
@@ -360,7 +360,7 @@ def clear_shot_focus() -> None:
     st.session_state.pop("simple_focus", None)
 
 
-@st.dialog("Ficha del plano", width="large", on_dismiss=clear_shot_focus)
+@st.dialog("Shot details", width="large", on_dismiss=clear_shot_focus)
 def shot_dialog(
     document: dict[str, Any], result: dict[str, Any], shot_id: str
 ) -> None:
@@ -373,7 +373,7 @@ def shot_detail_panel(
     """Plain-language card for one shot, with the full evidence one click away."""
     shot = next((item for item in result["shots"] if item["shot_id"] == shot_id), None)
     if shot is None:
-        st.info("Ese plano ya no existe con la configuración actual.")
+        st.info("Ese shot ya no existe con la configuration actual.")
         return
 
     title, close = st.columns([5, 1])
@@ -383,16 +383,16 @@ def shot_detail_panel(
         st.rerun()
 
     st.caption(
-        f"Empieza en {copy_es.clock(shot['start_time_seconds'])} y dura "
-        f"{copy_es.duration_label(shot['duration_seconds'])}."
+        f"Empieza en {copy_text.clock(shot['start_time_seconds'])} y dura "
+        f"{copy_text.duration_label(shot['duration_seconds'])}."
     )
-    icon, text = copy_es.status_chip(shot["status"])
+    icon, text = copy_text.status_chip(shot["status"])
     st.markdown(f"{icon} **{text}**")
     if shot["status"] in {"rejected_gate", "rejected_floor"}:
-        st.caption(f"Motivo: {copy_es.discard_reason(shot)}.")
+        st.caption(f"Motivo: {copy_text.discard_reason(shot)}.")
     st.markdown(
-        copy_es.why_sentence(shot, shot.get("score_weights_effective", {}))
-        + " La explicación se deriva del ranking; no es una valoración artística."
+        copy_text.why_sentence(shot, shot.get("score_weights_effective", {}))
+        + " The explanation is derived from the ranking; it is not an artistic judgement."
     )
 
     download = simple.download_of(shot)
@@ -404,14 +404,14 @@ def shot_detail_panel(
                 preview,
                 caption=(
                     f"Fotograma elegido en "
-                    f"{copy_es.clock(shot['selected_frame_timestamp'])}. "
+                    f"{copy_text.clock(shot['selected_frame_timestamp'])}. "
                     f"Regla: {shot.get('selected_frame_rule', 'sharpest')}."
                 ),
                 width=420,
             )
         else:
             st.info(
-                "Este plano no tiene vista previa en este run. Los representativos se "
+                "Este shot no tiene vista previa en este run. Los representativos se "
                 "escriben al generarlo; relanza el CLI para verlo."
             )
     with right:
@@ -428,14 +428,14 @@ def shot_detail_panel(
             )
         failures = shot.get("failed_gates") or []
         if failures:
-            st.markdown("**Filtros que no pasó**")
+            st.markdown("**Filters it failed**")
             st.dataframe(
                 pd.DataFrame(
                     [
                         {
                             "filtro": item["gate"],
                             "valor": item.get("value"),
-                            "umbral": item.get("threshold"),
+                            "threshold": item.get("threshold"),
                         }
                         for item in failures
                     ]
@@ -445,19 +445,19 @@ def shot_detail_panel(
             )
         else:
             st.markdown("**Filtros**")
-            st.caption("Pasó todos los filtros activos.")
+            st.caption("Passed all active filters.")
         score = f"{shot.get('total_score', 0):.3f}".replace(".", ",")
-        st.caption(f"Puntuación total: {score} sobre 1.")
+        st.caption(f"Total score: {score} out of 1.")
 
-    with st.expander("Ver detalle técnico (variables, unidades y normalización)"):
+    with st.expander("Ver detail technical (variables, units y normalisation)"):
         st.dataframe(
             pd.DataFrame(component_rows(shot, result["normalization"])),
             hide_index=True,
             width="stretch",
         )
         st.caption(
-            "Cada fila declara variable, unidad, valor bruto, valor normalizado y el "
-            "rango usado. Los valores que faltan aparecen como «no disponible»."
+            "Cada fila declara variable, unit, valor bruto, valor normalizado y el "
+            "range usado. Los valores que faltan aparecen como «no disponible»."
         )
 
 
@@ -466,34 +466,34 @@ def shot_detail_panel(
 
 def main() -> None:
     st.set_page_config(
-        page_title="Selector de planos",
+        page_title="Shot selector",
         page_icon="🎬",
         layout="wide",
     )
 
     runs = find_runs()
     if not runs:
-        st.title("Selector de planos")
+        st.title("Shot selector")
         if st.session_state.get("upload_job") is not None:
             upload.run_pending_job()
             st.stop()
         st.info(
-            "Todavía no hay ningún análisis. Sube un vídeo o indica su ruta para "
-            "empezar; también puedes lanzar el CLI a mano."
+            "No analysis yet. Upload a video or provide its path para "
+            "empezar; you can also run the CLI by hand."
         )
         upload.render_panel()
         st.stop()
 
-    st.sidebar.title("🎬 Selector de planos")
+    st.sidebar.title("🎬 Shot selector")
     mode = st.sidebar.radio(
-        "Vista",
-        ["Simple", "Técnico"],
+        "View",
+        ["Simple", "Technical"],
         index=0,
         horizontal=True,
         key="ui_mode",
         help=(
-            "Simple: solo lo esencial, con las fotos y sus descargas. "
-            "Técnico: todos los pesos, gates y evidencias."
+            "Simple: solo lo esencial, con las photos y sus downloads. "
+            "Technical: todos los pesos, gates y evidencias."
         ),
     )
     run_labels = {path: f"{path.name}" for path in runs}
@@ -554,8 +554,8 @@ def main() -> None:
         upload.run_pending_job()
 
     if mode == "Simple":
-        st.title("Tus fotos")
-        with st.expander("➕ Analizar otro vídeo", expanded=False):
+        st.title("Your photos")
+        with st.expander("➕ Analyse otro video", expanded=False):
             upload.render_panel()
         warning_banner(document, result)
         simple.render_results(document, result, config)
@@ -564,18 +564,18 @@ def main() -> None:
         return
 
     header(document, result)
-    with st.expander("➕ Analizar otro vídeo", expanded=False):
+    with st.expander("➕ Analyse otro video", expanded=False):
         upload.render_panel()
     warning_banner(document, result)
 
     tabs = st.tabs(
         [
-            "Calibración",
-            "Ranking y gates",
-            "Fronteras",
-            "Distribuciones",
-            "Resumen",
-            "Auditoría",
+            "Calibration",
+            "Ranking and gates",
+            "Boundaries",
+            "Distributions",
+            "Summary",
+            "Audit",
         ]
     )
     with tabs[0]:
@@ -602,7 +602,7 @@ def header(document: dict[str, Any], result: dict[str, Any]) -> None:
     columns[4].metric("Mejor score", f"{summary['top_score']:.3f}")
     st.caption(
         f"Preset `{result['preferences']['preset']}` · "
-        f"normalización `{result['preferences']['normalization_method']}` · "
+        f"normalisation `{result['preferences']['normalization_method']}` · "
         f"diversidad `{summary['diversity_weight']:.2f}` · "
         f"config `{document['config_hash'][:18]}…`"
     )
@@ -625,20 +625,20 @@ def render_sidebar(
     dominant = max(chosen["weights"], key=lambda name: chosen["weights"][name])
     band = chosen["targets"].get("duration_seconds", {})
     st.sidebar.caption(
-        f"Dimensión dominante: **{dominant}** · "
-        f"banda de duración {band.get('low', 0):g}–{band.get('high', 0):g} s · "
-        f"normalización {chosen['normalization_method']}."
+        f"Dominant dimension: **{dominant}** · "
+        f"banda de duration {band.get('low', 0):g}–{band.get('high', 0):g} s · "
+        f"normalisation {chosen['normalization_method']}."
     )
-    if st.sidebar.button("Aplicar preset", width="stretch"):
+    if st.sidebar.button("Apply preset", width="stretch"):
         apply_preset(document, choice)
         st.rerun()
     normalize = st.sidebar.toggle(
-        "Normalizar por vídeo (p5-p95)",
+        "Normalise per video (p5-p95)",
         value=preferences["normalization_method"] == "per_video_percentile",
         key=f"norm_toggle_{generation}",
         help=(
-            "Activado: los rangos salen de la distribución de este vídeo. "
-            "Desactivado: rangos absolutos del config (reproduce balanced_v1)."
+            "Activado: los ranges salen de la distribution de este video. "
+            "Desactivado: ranges absolutos del config (reproduce balanced_v1)."
         ),
     )
     preferences["normalization_method"] = (
@@ -646,7 +646,7 @@ def render_sidebar(
     )
 
     st.sidebar.divider()
-    st.sidebar.subheader("Pesos")
+    st.sidebar.subheader("Weights")
     total = 0.0
     for dimension in DIMENSION_ORDER:
         label = document["dimension_catalog"][dimension]["label_es"]
@@ -661,12 +661,12 @@ def render_sidebar(
         )
         total += preferences["weights"][dimension]
     if total <= 0:
-        st.sidebar.error("Todos los pesos están a cero.")
+        st.sidebar.error("All weights are zero.")
     else:
         st.sidebar.caption(f"Suma de pesos: {total:.2f} (se renormaliza a 1.0)")
 
     st.sidebar.divider()
-    st.sidebar.subheader("Selección")
+    st.sidebar.subheader("Selection")
     shot_total = max(1, len(document["shots"]))
     preferences["top_n"] = st.sidebar.number_input(
         "Top-N",
@@ -677,10 +677,10 @@ def render_sidebar(
         key=f"topn_{generation}",
     )
     preferences["diversity"]["enabled"] = st.sidebar.toggle(
-        "Penalizar duplicados (MMR)",
+        "Penalise duplicates (MMR)",
         value=bool(preferences["diversity"].get("enabled", True)),
         key=f"div_on_{generation}",
-        help="Aleja del Top-N los planos casi idénticos a uno ya elegido.",
+        help="Pushes shots nearly identical to an already chosen one out of the Top-N.",
     )
     preferences["diversity"]["weight"] = st.sidebar.slider(
         "Fuerza de diversidad",
@@ -708,8 +708,8 @@ def render_sidebar(
 
     with st.sidebar.expander("Bandas objetivo", expanded=False):
         st.caption(
-            "Dentro de la banda la puntuación es 1.0; fuera cae linealmente "
-            "según el margen."
+            "Inside the band the score is 1.0; outside it falls linearly "
+            "according to the margin."
         )
         for target in TARGET_ORDER:
             band = preferences["targets"].get(target)
@@ -717,13 +717,13 @@ def render_sidebar(
                 continue
             columns = st.columns(2)
             band["low"] = columns[0].number_input(
-                f"{TARGET_LABELS[target]} mín.",
+                f"{TARGET_LABELS[target]} min.",
                 value=float(band["low"]),
                 step=0.5 if target == "duration_seconds" else 0.05,
                 key=f"tgt_lo_{target}_{generation}",
             )
             band["high"] = columns[1].number_input(
-                f"{TARGET_LABELS[target]} máx.",
+                f"{TARGET_LABELS[target]} max.",
                 value=float(band["high"]),
                 step=0.5 if target == "duration_seconds" else 0.05,
                 key=f"tgt_hi_{target}_{generation}",
@@ -743,7 +743,7 @@ def render_sidebar(
             key=f"floor_on_{generation}",
         )
         preferences["floor"]["min_total_score"] = st.slider(
-            "Score mínimo",
+            "Score minimum",
             min_value=0.0,
             max_value=1.0,
             value=float(preferences["floor"].get("min_total_score", 0.25)),
@@ -753,18 +753,18 @@ def render_sidebar(
         )
 
     st.sidebar.divider()
-    if st.sidebar.button("Restablecer", width="stretch"):
+    if st.sidebar.button("Reset", width="stretch"):
         st.session_state["prefs"] = default_preferences(document)
         st.session_state["gen"] = generation + 1
         st.rerun()
 
     st.sidebar.download_button(
-        "Descargar config (JSON)",
+        "Download config (JSON)",
         data=json.dumps(build_config(document, preferences), indent=2, ensure_ascii=False),
         file_name="config_overrides.json",
         mime="application/json",
         width="stretch",
-        help="Pásalo al CLI con --config para reproducir exactamente este ranking.",
+        help="Pass it to the CLI with --config to reproduce this ranking exactly.",
     )
 
 
@@ -784,37 +784,37 @@ def tab_calibration(
     dropped = [shot_id for shot_id in base_ids if shot_id not in now_ids]
     reordered = not entered and not dropped and now_ids != base_ids
 
-    st.subheader("Qué estáis premiando")
+    st.subheader("What you are rewarding")
     left, right = st.columns([3, 2])
 
     with left:
         weights = pd.DataFrame(
             {
-                "dimensión": [
+                "dimension": [
                     document["dimension_catalog"][dimension]["label_es"]
                     for dimension in DIMENSION_ORDER
                 ],
-                "peso": [preferences["weights"][dimension] for dimension in DIMENSION_ORDER],
-                "score medio elegidos": [
+                "weight": [preferences["weights"][dimension] for dimension in DIMENSION_ORDER],
+                "mean score of chosen": [
                     _mean([shot["dimension_scores"][dimension] for shot in selected])
                     for dimension in DIMENSION_ORDER
                 ],
             }
         )
-        weights["aporte"] = weights["peso"] * weights["score medio elegidos"]
+        weights["contribution"] = weights["weight"] * weights["mean score of chosen"]
         chart = (
             alt.Chart(weights)
             .mark_bar()
             .encode(
-                x=alt.X("aporte:Q", title="aporte al score (peso × score medio)"),
-                y=alt.Y("dimensión:N", sort="-x", title=None),
-                tooltip=["dimensión", "peso", "score medio elegidos", "aporte"],
+                x=alt.X("contribution:Q", title="contribution to score (weight × mean score)"),
+                y=alt.Y("dimension:N", sort="-x", title=None),
+                tooltip=["dimension", "weight", "mean score of chosen", "contribution"],
             )
             .properties(height=260)
         )
         st.altair_chart(chart, width="stretch")
         st.caption(
-            "El aporte explica por qué gana el Top-N actual. Si una dimensión con poco "
+            "Contribution explains why the current Top-N wins. If a dimension with little "
             "peso domina el aporte, el score medio de los elegidos es alto y el peso no "
             "es el problema."
         )
@@ -828,18 +828,18 @@ def tab_calibration(
         if entered or dropped:
             rank_of = {shot["shot_id"]: shot["rank"] for shot in selected}
             rows = [
-                {"movimiento": "entra", "plano": shot_id, "orden": rank_of[shot_id]}
+                {"motion": "entra", "shot": shot_id, "orden": rank_of[shot_id]}
                 for shot_id in entered
             ]
             rows.extend(
-                {"movimiento": "sale", "plano": shot_id, "orden": None}
+                {"motion": "sale", "shot": shot_id, "orden": None}
                 for shot_id in dropped
             )
             st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
         elif reordered:
-            st.caption("Mismo conjunto de planos, distinto orden.")
+            st.caption("Mismo conjunto de shots, distinto orden.")
         else:
-            st.caption("Idéntico al run guardado.")
+            st.caption("Identical to the saved run.")
 
     st.divider()
     st.subheader("Top-N con tus pesos")
@@ -850,7 +850,7 @@ def tab_calibration(
     st.divider()
     left, right = st.columns([1, 1])
     with left:
-        st.subheader("Ficha de un plano")
+        st.subheader("Ficha de un shot")
         options = [shot["shot_id"] for shot in result["shots"]]
         chosen = st.selectbox("Plano", options, key=f"cal_shot_{generation}")
         shot = next(item for item in result["shots"] if item["shot_id"] == chosen)
@@ -860,7 +860,7 @@ def tab_calibration(
             width="stretch",
         )
     with right:
-        st.subheader("Fotograma representativo")
+        st.subheader("Representative frame")
         download = simple.download_of(shot)
         if download:
             path, mime, label = download
@@ -878,13 +878,12 @@ def tab_calibration(
                 width="stretch",
                 key=f"download_frame_{generation}_{shot['shot_id']}",
             )
-            st.caption(f"Archivo: `{path}`")
+            st.caption(f"File: `{path}`")
         else:
             st.info(
-                "Este plano no tiene fotograma exportado con el corte actual. Los "
-                "representativos se escriben al generar el run; si cambiaste la fusión "
-                "de fronteras, relanza el CLI con ese `--merge-similarity` para "
-                "exportarlos."
+                "This shot has no exported frame with the current cut. Representatives "
+                "are written when the run is generated; if you changed boundary merging, "
+                "re-run the CLI with that `--merge-similarity` to export them."
             )
 
     st.divider()
@@ -892,15 +891,15 @@ def tab_calibration(
 
 
 def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
-    st.subheader("Comparación por parejas (nivel B)")
+    st.subheader("Pair comparison (level B)")
     st.caption(
-        "Elige cuál de los dos planos es mejor para ti. Es la señal que revela si los "
-        "pesos están mal: no se aplica sola, se guarda en labels.json y se mide."
+        "Choose which of the two shots is better for you. It is the signal that reveals "
+        "whether the weights are wrong: not applied alone, saved in labels.json and measured."
     )
     labels = current_labels(document)
     shot_ids = [shot["shot_id"] for shot in result["shots"]]
     if len(shot_ids) < 2:
-        st.info("Hacen falta al menos dos planos.")
+        st.info("At least two shots are needed.")
         return
 
     left, right = st.columns(2)
@@ -914,11 +913,11 @@ def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
             key="pair_b",
         )
     if option_a == option_b:
-        st.warning("Elige dos planos distintos.")
+        st.warning("Elige dos shots distintos.")
         return
 
     columns = st.columns(4)
-    if columns[0].button("Gana A", width="stretch", key="pair_pick_a"):
+    if columns[0].button("Wins A", width="stretch", key="pair_pick_a"):
         persist_label(
             document,
             lambda document_labels: record_pair_label(
@@ -926,7 +925,7 @@ def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
             ),
         )
         st.rerun()
-    if columns[1].button("Gana B", width="stretch", key="pair_pick_b"):
+    if columns[1].button("Wins B", width="stretch", key="pair_pick_b"):
         persist_label(
             document,
             lambda document_labels: record_pair_label(
@@ -934,7 +933,7 @@ def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
             ),
         )
         st.rerun()
-    if columns[2].button("Empate", width="stretch", key="pair_pick_tie"):
+    if columns[2].button("Tie", width="stretch", key="pair_pick_tie"):
         persist_label(
             document,
             lambda document_labels: record_pair_label(
@@ -960,7 +959,7 @@ def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
             {
                 "A": pair["a"],
                 "B": pair["b"],
-                "tu elección": pair["winner"],
+                "your choice": pair["winner"],
                 "score A": round(a_score, 4),
                 "score B": round(b_score, 4),
                 "acierta": predicted == pair["winner"],
@@ -970,12 +969,12 @@ def calibration_pairs(document: dict[str, Any], result: dict[str, Any]) -> None:
         st.metric(
             "Acierto de los pesos actuales",
             f"{correct / compared:.0%}",
-            help=f"{correct} de {compared} parejas ordenadas igual que tú.",
+            help=f"{correct} of {compared} pairs ordered the same as you.",
         )
     if pair_rows:
         st.dataframe(pd.DataFrame(pair_rows), hide_index=True, width="stretch")
     else:
-        st.caption("Todavía no hay parejas etiquetadas.")
+        st.caption("No labelled pairs yet.")
 
 
 def _mean(values: list[float]) -> float:
@@ -986,18 +985,18 @@ def _mean(values: list[float]) -> float:
 
 
 def tab_ranking(document: dict[str, Any], result: dict[str, Any]) -> None:
-    st.subheader("Todos los planos")
+    st.subheader("All los shots")
     table = shots_frame(result, document["dimension_catalog"])
-    table["estado_crudo"] = [shot["status"] for shot in result["shots"]]
+    table["status_raw"] = [shot["status"] for shot in result["shots"]]
 
     statuses = st.multiselect(
-        "Filtrar por estado",
+        "Filter by status",
         options=STATUS_ORDER,
         default=STATUS_ORDER,
         format_func=lambda value: STATUS_ES[value],
     )
-    filtered = table[table["estado_crudo"].isin(statuses)].drop(columns=["estado_crudo"])
-    st.caption(f"{len(filtered)} de {len(table)} planos.")
+    filtered = table[table["status_raw"].isin(statuses)].drop(columns=["status_raw"])
+    st.caption(f"{len(filtered)} of {len(table)} shots.")
     st.dataframe(filtered, hide_index=True, width="stretch")
 
     st.divider()
@@ -1008,9 +1007,9 @@ def tab_ranking(document: dict[str, Any], result: dict[str, Any]) -> None:
 
     columns = st.columns(4)
     columns[0].metric("Score total", f"{shot['total_score']:.4f}")
-    columns[1].metric("Estado", STATUS_ES.get(shot["status"], shot["status"]))
-    columns[2].metric("Duración", f"{shot['duration_seconds']:.2f}s")
-    columns[3].metric("Estabilidad vía", shot.get("stability_source", "translation"))
+    columns[1].metric("Status", STATUS_ES.get(shot["status"], shot["status"]))
+    columns[2].metric("Duration", f"{shot['duration_seconds']:.2f}s")
+    columns[3].metric("Stability via", shot.get("stability_source", "translation"))
 
     if shot["failed_gates"]:
         st.error(
@@ -1023,7 +1022,7 @@ def tab_ranking(document: dict[str, Any], result: dict[str, Any]) -> None:
                     {
                         "gate": failure["gate"],
                         "valor": round(failure["value"], 4),
-                        "umbral": round(failure["threshold"], 4),
+                        "threshold": round(failure["threshold"], 4),
                         "lectura": failure["interpretation"],
                     }
                     for failure in shot["failed_gates"]
@@ -1037,19 +1036,19 @@ def tab_ranking(document: dict[str, Any], result: dict[str, Any]) -> None:
 
     left, right = st.columns(2)
     with left:
-        st.markdown("**Métricas brutas**")
+        st.markdown("**Raw metrics**")
         rows = [
             {
                 "variable": key,
-                "etiqueta": document["field_catalog"].get(key, {}).get("label_es", key),
+                "label": document["field_catalog"].get(key, {}).get("label_es", key),
                 "valor": round(float(value), 5),
-                "unidad": document["field_catalog"].get(key, {}).get("unit_es", ""),
+                "unit": document["field_catalog"].get(key, {}).get("unit_es", ""),
             }
             for key, value in sorted(shot["metrics"].items())
         ]
         st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch", height=320)
     with right:
-        st.markdown("**Normalizado y de dónde sale**")
+        st.markdown("**Normalised and where it comes from**")
         st.dataframe(
             pd.DataFrame(component_rows(shot, result["normalization"])),
             hide_index=True,
@@ -1062,10 +1061,10 @@ def tab_ranking(document: dict[str, Any], result: dict[str, Any]) -> None:
 
 
 def annotation_panel(document: dict[str, Any], shot: dict[str, Any]) -> None:
-    st.subheader("Anotación (nivel A)")
+    st.subheader("Annotation (level A)")
     labels = current_labels(document)
     existing = shot_labels(labels).get(shot["shot_id"], {})
-    current = existing.get("verdict", "sin etiquetar")
+    current = existing.get("verdict", "sin labelr")
 
     reason = st.selectbox(
         "Motivo del descarte",
@@ -1078,7 +1077,7 @@ def annotation_panel(document: dict[str, Any], shot: dict[str, Any]) -> None:
 
     columns = st.columns(4)
     if columns[0].button(
-        "Mantener", width="stretch", type="primary", key=f"keep_{shot['shot_id']}"
+        "Keep", width="stretch", type="primary", key=f"keep_{shot['shot_id']}"
     ):
         persist_label(
             document,
@@ -1087,7 +1086,7 @@ def annotation_panel(document: dict[str, Any], shot: dict[str, Any]) -> None:
             ),
         )
         st.rerun()
-    if columns[1].button("Descartar", width="stretch", key=f"reject_{shot['shot_id']}"):
+    if columns[1].button("Discard", width="stretch", key=f"reject_{shot['shot_id']}"):
         persist_label(
             document,
             lambda document_labels: record_shot_label(
@@ -1098,7 +1097,7 @@ def annotation_panel(document: dict[str, Any], shot: dict[str, Any]) -> None:
             ),
         )
         st.rerun()
-    if columns[2].button("Dudoso", width="stretch", key=f"unsure_{shot['shot_id']}"):
+    if columns[2].button("Doubtful", width="stretch", key=f"unsure_{shot['shot_id']}"):
         persist_label(
             document,
             lambda document_labels: record_shot_label(
@@ -1110,7 +1109,7 @@ def annotation_panel(document: dict[str, Any], shot: dict[str, Any]) -> None:
     st.caption(f"Etiqueta actual: **{current}**")
 
 
-# ---------------------------------------------------------------------- tab: borders
+# ---------------------------------------------------------------------- tab: edgers
 
 
 def tab_boundaries(
@@ -1120,33 +1119,33 @@ def tab_boundaries(
     generation: int,
     rebuild_evidence: dict[str, Any] | None,
 ) -> None:
-    st.subheader("Sobre-segmentación")
+    st.subheader("Over-segmentation")
     st.caption(
-        "Fusiona planos adyacentes casi idénticos. Se recalcula de verdad: reconstruye "
-        "los planos desde las muestras y vuelve a medir, no aproxima."
+        "Merges nearly identical adjacent shots. Truly recomputed: rebuilds "
+        "los shots desde las samples y vuelve a medir, no aproxima."
     )
     has_samples = bool(document["artifacts"].get("samples_csv")) and bool(
         document.get("distances")
     )
     preferences["merge_similarity"] = st.slider(
-        "Similitud mínima para fusionar (Bhattacharyya)",
+        "Similitud minimum para fusionar (Bhattacharyya)",
         min_value=0.90,
         max_value=1.0,
         value=float(preferences["merge_similarity"]),
         step=0.005,
         key=f"merge_{generation}",
         disabled=not has_samples,
-        help="1.0 desactiva la fusión. 0.98 fusiona solo planos casi idénticos.",
+        help="1.0 disables merging. 0.98 merges only nearly identical shots.",
     )
     if not has_samples:
         st.warning(
             "Este run no tiene samples.csv.gz o distancias; regenera con artefactos "
-            "activados para usar el control de fusión."
+            "enabled to use the merge control."
         )
 
     detection = document.get("boundary_detection", {})
     columns = st.columns(4)
-    columns[0].metric("Fronteras detectadas", len(document.get("boundary_positions", [])))
+    columns[0].metric("Boundaries detectadas", len(document.get("boundary_positions", [])))
     columns[1].metric("Umbral MAD", f"{detection.get('threshold', 0.0):.4f}")
     columns[2].metric("Planos actuales", result["summary"]["total_shots"])
     if rebuild_evidence:
@@ -1156,7 +1155,7 @@ def tab_boundaries(
             delta=result["summary"]["total_shots"] - rebuild_evidence["shots_built"],
         )
     else:
-        columns[3].metric("Fusión", "desactivada")
+        columns[3].metric("Merge", "disabled")
 
     candidates = detection.get("peaks_before_prominence")
     rejected_peaks = detection.get("rejected_peaks", [])
@@ -1164,13 +1163,13 @@ def tab_boundaries(
         st.caption(
             f"Picos candidatos: **{candidates}** · descartados por baja prominencia: "
             f"**{len(rejected_peaks)}** · factor exigido: "
-            f"{detection.get('prominence_ratio', 0.0):.2f}× sobre la mediana local "
-            f"(radio {detection.get('prominence_radius', 'no disponible')} muestras, "
-            f"guarda {detection.get('prominence_guard', 'no disponible')}). Un máximo "
-            "dentro de una moción sostenida no es un cambio de contenido."
+            f"{detection.get('prominence_ratio', 0.0):.2f}× sobre la median local "
+            f"(radio {detection.get('prominence_radius', 'no disponible')} samples, "
+            f"guarda {detection.get('prominence_guard', 'no disponible')}). Un maximum "
+            "inside sustained motion is not a content change."
         )
         if rejected_peaks:
-            with st.expander("Picos descartados (moción sostenida, no corte)"):
+            with st.expander("Discarded peaks (sustained motion, not a cut)"):
                 st.dataframe(
                     pd.DataFrame(
                         [
@@ -1193,10 +1192,10 @@ def tab_boundaries(
                 )
 
     st.divider()
-    st.subheader("Evidencia por frontera")
+    st.subheader("Evidencia por boundary")
     montages = document.get("boundaries", [])
     if not montages:
-        st.info("Este run no generó montajes de frontera.")
+        st.info("This run produced no boundary montages.")
         return
 
     labels = current_labels(document)
@@ -1216,7 +1215,7 @@ def tab_boundaries(
         montage_file = Path(montage["path"])
         st.image(montage["path"], width="stretch")
         st.download_button(
-            "Descargar montaje (PNG)",
+            "Download montaje (PNG)",
             data=load_image(str(montage_file), montage_file.stat().st_mtime),
             file_name=montage_file.name,
             mime="image/png",
@@ -1230,7 +1229,7 @@ def tab_boundaries(
 
     existing = boundary_map.get(montage["boundary_id"], {})
     columns = st.columns(3)
-    if columns[0].button("Corte real", width="stretch", key="boundary_real"):
+    if columns[0].button("Real cut", width="stretch", key="boundary_real"):
         persist_label(
             document,
             lambda document_labels: record_boundary_label(
@@ -1240,7 +1239,7 @@ def tab_boundaries(
             ),
         )
         st.rerun()
-    if columns[1].button("Falso positivo", width="stretch", key="boundary_false"):
+    if columns[1].button("False positive", width="stretch", key="boundary_false"):
         persist_label(
             document,
             lambda document_labels: record_boundary_label(
@@ -1250,7 +1249,7 @@ def tab_boundaries(
             ),
         )
         st.rerun()
-    if columns[2].button("Dudoso", width="stretch", key="boundary_unsure"):
+    if columns[2].button("Doubtful", width="stretch", key="boundary_unsure"):
         persist_label(
             document,
             lambda document_labels: record_boundary_label(
@@ -1260,7 +1259,7 @@ def tab_boundaries(
             ),
         )
         st.rerun()
-    st.caption(f"Etiqueta actual: **{existing.get('verdict', 'sin etiquetar')}**")
+    st.caption(f"Etiqueta actual: **{existing.get('verdict', 'sin labelr')}**")
 
     labeled = sum(
         1 for entry in labels.get("boundaries", []) if entry.get("verdict") != "unsure"
@@ -1272,7 +1271,7 @@ def tab_boundaries(
             if entry.get("verdict") == "false_positive"
         )
         st.metric(
-            "Fronteras etiquetadas",
+            "Boundaries labeldas",
             f"{labeled} / {len(montages)}",
             help=f"{false_positives} marcadas como falso positivo.",
         )
@@ -1282,7 +1281,7 @@ def tab_boundaries(
 
 
 def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
-    st.subheader("Distribución de una variable")
+    st.subheader("Distribution of one variable")
     metric_keys = sorted(
         key
         for key in document["field_catalog"]
@@ -1297,17 +1296,17 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
     )
     meta = document["field_catalog"][metric]
     st.caption(
-        f"**{meta['label_es']}** · unidad: `{meta['unit_es']}` · agregación: "
-        f"`{meta['aggregation']}` · medida en: {meta['measured_on']}. {meta['description_es']}"
+        f"**{meta['label_es']}** · unit: `{meta['unit_es']}` · aggregation: "
+        f"`{meta['aggregation']}` · measurement en: {meta['measured_on']}. {meta['description_es']}"
     )
 
     frame = pd.DataFrame(
         {
             "valor": [shot["metrics"][metric] for shot in result["shots"]],
-            "estado": [
+            "status": [
                 STATUS_ES.get(shot["status"], shot["status"]) for shot in result["shots"]
             ],
-            "plano": [shot["shot_id"] for shot in result["shots"]],
+            "shot": [shot["shot_id"] for shot in result["shots"]],
         }
     )
     base = alt.Chart(frame)
@@ -1315,9 +1314,9 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
         base.mark_bar(opacity=0.75)
         .encode(
             x=alt.X("valor:Q", bin=alt.Bin(maxbins=24), title=meta["label_es"]),
-            y=alt.Y("count()", title="planos"),
-            color=alt.Color("estado:N", title="estado"),
-            tooltip=["count()", "estado"],
+            y=alt.Y("count()", title="shots"),
+            color=alt.Color("status:N", title="status"),
+            tooltip=["count()", "status"],
         )
         .properties(height=280)
     )
@@ -1326,8 +1325,8 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
     bounds = _bounds_for(result["normalization"], metric)
     if bounds:
         st.caption(
-            f"Rangos usados en la normalización: `{bounds['method']}` · "
-            f"mín={bounds['low']:.4f} · máx={bounds['high']:.4f} · "
+            f"Rangos usados en la normalisation: `{bounds['method']}` · "
+            f"min={bounds['low']:.4f} · max={bounds['high']:.4f} · "
             f"origen=`{bounds['source']}`"
         )
         rules = pd.DataFrame({"x": [bounds["low"], bounds["high"]]})
@@ -1339,10 +1338,10 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
         )
         st.altair_chart((histogram + rule_chart), width="stretch")
     else:
-        st.caption("Esta variable no participa en la normalización de ninguna dimensión.")
+        st.caption("This variable does not take part in the normalisation of any dimension.")
 
     st.divider()
-    st.subheader("Dispersión entre dos variables")
+    st.subheader("Scatter of two variables")
     columns = st.columns(2)
     x_metric = columns[0].selectbox("Eje X", metric_keys, index=0, key="scatter_x")
     y_metric = columns[1].selectbox(
@@ -1357,10 +1356,10 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
         {
             "x": [shot["metrics"][x_metric] for shot in result["shots"]],
             "y": [shot["metrics"][y_metric] for shot in result["shots"]],
-            "estado": [
+            "status": [
                 STATUS_ES.get(shot["status"], shot["status"]) for shot in result["shots"]
             ],
-            "plano": [shot["shot_id"] for shot in result["shots"]],
+            "shot": [shot["shot_id"] for shot in result["shots"]],
             "total": [shot["total_score"] for shot in result["shots"]],
         }
     )
@@ -1370,8 +1369,8 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
         .encode(
             x=alt.X("x:Q", title=document["field_catalog"][x_metric]["label_es"]),
             y=alt.Y("y:Q", title=document["field_catalog"][y_metric]["label_es"]),
-            color=alt.Color("estado:N", title="estado"),
-            tooltip=["plano", "estado", "total", "x", "y"],
+            color=alt.Color("status:N", title="status"),
+            tooltip=["shot", "status", "total", "x", "y"],
         )
         .properties(height=320)
         .interactive()
@@ -1380,7 +1379,7 @@ def tab_distributions(document: dict[str, Any], result: dict[str, Any]) -> None:
     st.caption(
         f"X: {document['field_catalog'][x_metric]['unit_es']} · "
         f"Y: {document['field_catalog'][y_metric]['unit_es']}. "
-        "Color = estado tras gates y piso de calidad."
+        "Color = status after gates and quality floor."
     )
 
 
@@ -1398,7 +1397,7 @@ def _bounds_for(normalization: dict[str, Any], metric: str) -> dict[str, Any] | 
 
 def tab_summary(document: dict[str, Any], result: dict[str, Any]) -> None:
     summary = result["summary"]
-    st.subheader("Resumen del run")
+    st.subheader("Summary del run")
     left, right = st.columns([3, 2])
     with left:
         st.dataframe(
@@ -1439,7 +1438,7 @@ def tab_summary(document: dict[str, Any], result: dict[str, Any]) -> None:
                     [
                         {
                             "orden": shot["rank"],
-                            "plano": shot["shot_id"],
+                            "shot": shot["shot_id"],
                             "inicio": round(shot["start_time_seconds"], 2),
                             "fin": round(shot["end_time_seconds"], 2),
                             "score": round(shot["total_score"], 4),
@@ -1457,39 +1456,39 @@ def tab_summary(document: dict[str, Any], result: dict[str, Any]) -> None:
             )
 
     st.divider()
-    st.markdown("**Cómo leer esto**")
+    st.markdown("**How to read this**")
     st.markdown(
-        "- El score es una mezcla ponderada de 8 dimensiones, cada una normalizada con "
-        "los rangos que aparecen en *Distribuciones*.\n"
-        "- Un plano puede pasar los gates y quedar fuera del Top-N: no es un rechazo, "
+        "- The score is a weighted blend of 8 dimensions, each normalised with "
+        "the ranges shown in *Distributions*.\n"
+        "- A shot can pass the gates and still miss the Top-N: no es un rechazo, "
         "es competencia.\n"
-        "- `initial_uncalibrated` significa que los umbrales son una hipótesis de "
-        "trabajo, no una verdad medida. Las etiquetas de nivel A y B son las que "
-        "permiten corregirlos.\n"
-        "- Nada de esto es un juicio editorial: es un borrador técnico."
+        "- `initial_uncalibrated` significa que los thresholds son una hypothesis de "
+        "not a measured truth. Level-A and level-B labels are what "
+        "allow correcting them.\n"
+        "- None of this is an editorial judgement: it is a technical draft."
     )
 
     st.divider()
-    st.subheader("Evaluación contra tus etiquetas")
+    st.subheader("Evaluation against your labels")
     evaluation = document.get("evaluation")
     if evaluation is None:
         st.info(
-            "Este run se generó sin labels.json. Anota planos en *Ranking y gates* y "
-            "vuelve a lanzar el CLI con `--labels` para obtener precisión, recall y "
+            "This run was generated without labels.json. Label shots in *Ranking and gates* y "
+            "vuelve a lanzar el CLI con `--labels` to get precision, recall and "
             "NDCG."
         )
         return
     if evaluation["status"] != "ok":
-        st.warning("Etiquetas insuficientes: " + "; ".join(evaluation["warnings"]))
+        st.warning("Insufficient labels: " + "; ".join(evaluation["warnings"]))
         return
     metrics = evaluation["metrics"]
     columns = st.columns(4)
     columns[0].metric(
-        "Precisión@N",
+        "Precision@N",
         "—" if metrics["precision_at_n"] is None else f"{metrics['precision_at_n']:.2f}",
     )
     columns[1].metric(
-        "Recall de 'keep'",
+        "Recall of 'keep'",
         "—" if metrics["recall_keep"] is None else f"{metrics['recall_keep']:.2f}",
     )
     columns[2].metric(
@@ -1497,19 +1496,19 @@ def tab_summary(document: dict[str, Any], result: dict[str, Any]) -> None:
         "—" if metrics["ndcg_at_n"] is None else f"{metrics['ndcg_at_n']:.2f}",
     )
     columns[3].metric(
-        "Acierto parejas",
+        "Pairwise accuracy",
         "—"
         if evaluation["pairwise"]["accuracy"] is None
         else f"{evaluation['pairwise']['accuracy']:.0%}",
     )
     if evaluation["gate_diagnostics"]:
-        st.markdown("**Gates que rechazan planos que tú mantendrías**")
+        st.markdown("**Gates that reject shots you would keep**")
         st.dataframe(
             pd.DataFrame(evaluation["gate_diagnostics"]),
             hide_index=True,
             width="stretch",
         )
-    st.markdown("**Qué dimensión separa mejor tu criterio**")
+    st.markdown("**Which dimension best separates your judgement**")
     st.dataframe(
         pd.DataFrame(evaluation["dimension_separation"]),
         hide_index=True,
@@ -1523,7 +1522,7 @@ def tab_summary(document: dict[str, Any], result: dict[str, Any]) -> None:
 def tab_audit(
     document: dict[str, Any], result: dict[str, Any], config: dict[str, Any]
 ) -> None:
-    st.subheader("Auditoría")
+    st.subheader("Audit")
     columns = st.columns(2)
     with columns[0]:
         st.markdown("**Pipeline**")
@@ -1533,32 +1532,32 @@ def tab_audit(
     with columns[1]:
         st.markdown("**Artefactos**")
         st.json(document["artifacts"], expanded=False)
-        st.markdown("**Resolución de análisis**")
+        st.markdown("**Analysis resolution**")
         st.json(document["analysis_resolution"], expanded=False)
 
     st.divider()
     st.subheader("Config activa")
     st.caption(
-        "Esta es exactamente la configuración que reproduce el ranking actual. "
-        "Descárgala desde la barra lateral y pásala con `--config`."
+        "Esta es exactamente la configuration que reproduce el ranking actual. "
+        "Download it from the sidebar and pass it with `--config`."
     )
     st.json(config, expanded=False)
 
     st.divider()
-    st.subheader("Catálogo de campos")
+    st.subheader("Field catalog")
     st.caption(
-        "Cada variable declara unidad, transformación, agregación y resolución de medida."
+        "Cada variable declara unit, transform, aggregation y resolution de measurement."
     )
     st.dataframe(
         pd.DataFrame(
             [
                 {
                     "variable": key,
-                    "etiqueta": value["label_es"],
-                    "unidad": value["unit_es"],
-                    "agregación": value["aggregation"],
-                    "medida en": value["measured_on"],
-                    "descripción": value["description_es"],
+                    "label": value["label_es"],
+                    "unit": value["unit_es"],
+                    "aggregation": value["aggregation"],
+                    "measurement en": value["measured_on"],
+                    "description": value["description_es"],
                 }
                 for key, value in document["field_catalog"].items()
             ]
@@ -1568,22 +1567,22 @@ def tab_audit(
     )
 
     st.divider()
-    st.subheader("Normalización aplicada")
+    st.subheader("Normalisation applied")
     normalization_rows = []
     for entry in result["normalization"].values():
         for group in ("components", "fallback_components"):
             for component in entry[group].values():
                 normalization_rows.append(
                     {
-                        "dimensión": entry["label_es"],
+                        "dimension": entry["label_es"],
                         "componente": component["label_es"],
                         "variable": component["metric"],
                         "modo": component["mode"],
-                        "método": component["method"],
-                        "mín": round(float(component["low"]), 5),
-                        "máx": round(float(component["high"]), 5),
+                        "method": component["method"],
+                        "min": round(float(component["low"]), 5),
+                        "max": round(float(component["high"]), 5),
                         "origen": component["source"],
-                        "calibración": component["calibration"],
+                        "calibration": component["calibration"],
                         "nota": component.get("fallback_reason", ""),
                     }
                 )
@@ -1593,7 +1592,7 @@ def tab_audit(
     audit_path = document["artifacts"].get("audit_json")
     if audit_path and Path(audit_path).exists():
         st.download_button(
-            "Descargar audit.json",
+            "Download audit.json",
             data=Path(audit_path).read_bytes(),
             file_name="audit.json",
             mime="application/json",

@@ -67,11 +67,11 @@ def _safe_stem(name: str) -> str:
 def _validate(path: Path) -> None:
     if path.suffix.lower() not in ALLOWED_SUFFIXES:
         raise UploadError(
-            f"Formato no admitido: {path.suffix or '(sin extensión)'}. "
-            f"Se admiten {', '.join(ALLOWED_SUFFIXES)}."
+            f"Unsupported format: {path.suffix or '(no extension)'}. "
+            f"Supported {', '.join(ALLOWED_SUFFIXES)}."
         )
     if not path.exists():
-        raise UploadError(f"No existe el archivo: {path}")
+        raise UploadError(f"File does not exist: {path}")
 
 
 def store_upload(uploaded) -> StoredVideo:
@@ -80,8 +80,8 @@ def store_upload(uploaded) -> StoredVideo:
     suffix = Path(name).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
         raise UploadError(
-            f"Formato no admitido: {suffix or '(sin extensión)'}. "
-            f"Se admiten {', '.join(ALLOWED_SUFFIXES)}."
+            f"Unsupported format: {suffix or '(no extension)'}. "
+            f"Supported {', '.join(ALLOWED_SUFFIXES)}."
         )
 
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
@@ -97,7 +97,7 @@ def store_upload(uploaded) -> StoredVideo:
                 total += len(chunk)
                 if total > MAX_UPLOAD_BYTES:
                     raise UploadError(
-                        "El vídeo supera los 4 GB. Usa el campo de ruta local para "
+                        "The video exceeds 4 GB. Use the local path field para "
                         "analizarlo sin copiarlo."
                     )
                 digest.update(chunk)
@@ -119,7 +119,7 @@ def store_local(raw_path: str) -> StoredVideo:
     path = Path(raw_path).expanduser()
     _validate(path)
     if not path.is_file():
-        raise UploadError(f"No es un archivo: {path}")
+        raise UploadError(f"Not a file: {path}")
     digest = hashlib.sha256()
     total = 0
     with path.open("rb") as handle:
@@ -189,25 +189,25 @@ def _progress_line(line: str) -> bool:
 def render_panel() -> None:
     """Uploader + local path. Runs the CLI and leaves the new run for the caller."""
     with st.container(border=True):
-        st.markdown("**Analizar un vídeo nuevo**")
+        st.markdown("**Analyse a new video**")
         st.caption(
-            "El archivo se queda en tu equipo: se guarda en `out/uploads` y se procesa "
-            "con el mismo motor que el CLI."
+            "The file stays on your machine: it is saved in `out/uploads` and is processed "
+            "with the same engine as the CLI."
         )
         uploaded = st.file_uploader(
-            "Sube un vídeo",
+            "Upload a video",
             type=[suffix.lstrip(".") for suffix in ALLOWED_SUFFIXES],
             key="upload_file",
             help="MOV, MP4, M4V, AVI o MKV. Hasta 4 GB.",
         )
         local_path = st.text_input(
-            "…o escribe la ruta de un vídeo que ya está en este equipo",
+            "…or type the path of a video already on this machine",
             key="upload_local_path",
             placeholder=r"C:\Users\tu_usuario\Videos\clip.mov",
         )
         columns = st.columns([1, 3])
         start = columns[0].button(
-            "Analizar", type="primary", width="stretch", key="upload_start"
+            "Analyse", type="primary", width="stretch", key="upload_start"
         )
         if start:
             _start(uploaded, local_path)
@@ -220,7 +220,7 @@ def _start(uploaded, local_path: str) -> None:
         elif uploaded is not None:
             video = store_upload(uploaded)
         else:
-            st.warning("Elige un archivo o escribe una ruta.")
+            st.warning("Choose a file or type a path.")
             return
     except UploadError as error:
         st.error(str(error))
@@ -229,7 +229,7 @@ def _start(uploaded, local_path: str) -> None:
     run_dir = run_directory(video)
     if (run_dir / "ui.json").exists():
         st.session_state["pending_run"] = str(run_dir)
-        st.toast("Ese vídeo ya estaba analizado: abriendo el resultado.", icon="♻️")
+        st.toast("That video was already analysed: opening the result.", icon="♻️")
         st.rerun()
 
     st.session_state["upload_job"] = start_job(video, run_dir)
@@ -243,7 +243,7 @@ def run_pending_job() -> None:
     if job is None:
         return
 
-    status = st.status("Analizando el vídeo…", expanded=True)
+    status = st.status("Analysing the video…", expanded=True)
     for line in stream(job):
         job.log.append(line)
         if _progress_line(line):
@@ -251,15 +251,15 @@ def run_pending_job() -> None:
     job.process.wait()
 
     if job.process.returncode == 0 and (job.run_dir / "ui.json").exists():
-        status.update(label="Análisis terminado", state="complete", expanded=False)
+        status.update(label="Analysis finished", state="complete", expanded=False)
         st.session_state.pop("upload_job", None)
         st.session_state.pop("upload_reused", None)
         st.session_state["pending_run"] = str(job.run_dir)
         st.rerun()
 
-    status.update(label="El análisis no terminó", state="error", expanded=True)
-    st.code("\n".join(job.log[-40:]) or "(sin salida)", language="text")
-    if st.button("Descartar este intento", key="upload_discard"):
+    status.update(label="Analysis did not finish", state="error", expanded=True)
+    st.code("\n".join(job.log[-40:]) or "(no output)", language="text")
+    if st.button("Discard this attempt", key="upload_discard"):
         cancel(job)
         st.session_state.pop("upload_job", None)
         st.session_state.pop("upload_reused", None)

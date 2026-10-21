@@ -21,4 +21,4 @@ def test_empty_state_renders_uploader():
     app.run()
     assert not app.exception, [error.message for error in app.exception]
     assert len(app.file_uploader) >= 1
-    assert any(button.label == "Analizar" for button in app.button)
+    assert any(button.label == "Analyse" for button in app.button)
