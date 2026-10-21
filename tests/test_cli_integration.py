@@ -85,6 +85,19 @@ def test_cli_end_to_end(tmp_path):
         if shot["status"] == "passing_unselected":
             assert "thumb_path" not in shot
 
+    # And a full-resolution JPEG delivery copy, the one the gallery downloads.
+    assert ui["artifacts"]["photos_dir"]
+    assert ui["artifacts"]["shot_photos_written"] == len(preview_shots)
+    for shot in preview_shots:
+        photo = Path(shot["photo_path"])
+        assert photo.exists()
+        assert photo.suffix == ".jpg"
+        assert shot["photo_bytes"] == photo.stat().st_size
+        assert shot["photo_width"] >= shot["thumb_width"]
+        assert shot["photo_height"] >= shot["thumb_height"]
+        if "selected_frame_image_path" in shot:
+            assert shot["photo_bytes"] < Path(shot["selected_frame_image_path"]).stat().st_size
+
 
 @pytest.mark.skipif(not SAMPLE.exists(), reason="synthetic sample not available")
 def test_cli_legacy_preset_uses_absolute_normalization(tmp_path):

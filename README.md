@@ -39,7 +39,9 @@ Two modes, one client, one config:
 
 **Simple** (default) answers three questions ("tipo de foto", "cuántas fotos", "¿evitar
 repetidos?") and shows a gallery of the recommended shots with a preview and a download
-button per photo, a ZIP with the recommended PNGs and the config JSON. "Ver ficha" opens a
+button per photo, two bulk ZIPs (a light 480 px one and the full-resolution JPEGs) and the
+config JSON. It also accepts a new video: drop a `.mov`/`.mp4`/… into the uploader or paste
+a local path, and the run is created on the spot. "Ver ficha" opens a
 plain-language explanation derived from the ranking; the raw evidence stays one click away.
 
 **Técnico** keeps the six tabs:

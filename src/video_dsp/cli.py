@@ -41,6 +41,7 @@ from .export import (
     build_error_output,
     build_output,
     export_representative_frames,
+    export_shot_photos,
     export_shot_thumbnails,
     write_json,
 )
@@ -466,12 +467,15 @@ def run(args: argparse.Namespace) -> int:
 
     written_frames: list[str] = []
     written_thumbs: list[str] = []
+    written_photos: list[str] = []
     montages: list[dict] = []
     representatives_dir = (
         Path(args.thumbnails) if args.thumbnails else media_dir / "representatives"
     )
     thumbnails_config = config["artifacts"].get("thumbnails", {})
+    photos_config = config["artifacts"].get("photos", {})
     thumbs_dir = media_dir / "thumbs"
+    photos_dir = media_dir / "photos"
     artifacts: dict[str, Any] = {
         "run_dir": run_dir.as_posix(),
         "audit_json": audit_path.as_posix(),
@@ -517,7 +521,23 @@ def run(args: argparse.Namespace) -> int:
             quality=int(thumbnails_config.get("quality", 80)),
         )
 
+    if artifacts_enabled and photos_config.get("enabled", True):
+        photo_shots = [
+            shot
+            for shot in result["shots"]
+            if shot["status"] in {"selected", "rejected_gate", "rejected_floor"}
+        ]
+        written_photos = export_shot_photos(
+            input_path,
+            photo_shots,
+            photos_dir,
+            quality=int(photos_config.get("quality", 92)),
+        )
+
     artifacts["shot_thumbs_dir"] = thumbs_dir.as_posix() if written_thumbs else None
+    artifacts["photos_dir"] = photos_dir.as_posix() if written_photos else None
+    artifacts["shot_thumbs_written"] = len(written_thumbs)
+    artifacts["shot_photos_written"] = len(written_photos)
 
     if artifacts["boundaries_dir"] is not None:
         montages = render_boundary_montages(
@@ -555,6 +575,20 @@ def run(args: argparse.Namespace) -> int:
         warnings.append(
             f"shot_thumbnails_incomplete ({len(written_thumbs)}/{expected_thumbs})"
         )
+    if not photos_config.get("enabled", True):
+        warnings.append("shot_photos_skipped (disabled in config)")
+    elif not artifacts_enabled:
+        warnings.append("shot_photos_skipped (--no-artifacts)")
+    elif len(written_photos) < expected_thumbs:
+        warnings.append(
+            f"shot_photos_incomplete ({len(written_photos)}/{expected_thumbs})"
+        )
+    elif written_photos:
+        largest = max(int(shot.get("photo_bytes", 0)) for shot in result["shots"])
+        if largest > 5_000_000:
+            warnings.append(
+                f"shot_photo_large_for_download ({largest} bytes; check the browser limit)"
+            )
     if analysis.get("enabled"):
         warnings.append(
             "analysis_resolution_resized_for_speed "
@@ -580,6 +614,7 @@ def run(args: argparse.Namespace) -> int:
         "source_duration_seconds": metadata.duration_seconds,
         "thumbnails_written": len(written_frames),
         "shot_thumbs_written": len(written_thumbs),
+        "shot_photos_written": len(written_photos),
         "boundary_montages_written": len(montages),
         "warnings": warnings,
         "calibration": config["hard_gates"].get("calibration", CALIBRATION_LABEL),
@@ -675,6 +710,13 @@ def run(args: argparse.Namespace) -> int:
     if written_frames:
         print(
             f"[video_dsp] wrote {len(written_frames)} representative frames",
+            file=sys.stderr,
+        )
+    if written_photos:
+        total = sum(int(shot.get("photo_bytes", 0)) for shot in result["shots"])
+        print(
+            f"[video_dsp] wrote {len(written_photos)} photos "
+            f"({total / 1e6:.1f} MB)",
             file=sys.stderr,
         )
     if montages:

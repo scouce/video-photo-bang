@@ -31,6 +31,7 @@ import copy_es
 import pandas as pd
 import simple
 import streamlit as st
+import upload
 
 from video_dsp.labels import (
     REJECT_REASONS,
@@ -87,7 +88,9 @@ TARGET_LABELS = {
 
 
 @st.cache_data(show_spinner=False)
-def load_ui(path: str) -> dict[str, Any]:
+def load_ui(path: str, mtime: float) -> dict[str, Any]:
+    """Read ``ui.json``; ``mtime`` keys the cache so a regenerated run is not stale."""
+    del mtime
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
@@ -176,6 +179,11 @@ def apply_preset(document: dict[str, Any], name: str) -> None:
     preferences["floor"] = copy.deepcopy(preset["quality_floor"])
     preferences["normalization_method"] = preset["normalization_method"]
     preferences["preset"] = name
+    # Gates a preset tightens or relaxes are part of its meaning; merge only those
+    # the technical sliders expose so a preset never injects a gate silently.
+    for gate, value in preset.get("hard_gates", {}).items():
+        if gate in GATE_LABELS and gate in preferences["gates"]:
+            preferences["gates"][gate] = float(value)
     st.session_state["gen"] += 1
 
 
@@ -195,6 +203,9 @@ def build_config(document: dict[str, Any], preferences: dict[str, Any]) -> dict[
     config["hard_gates"].update(preferences["gates"])
     config["targets"] = copy.deepcopy(preferences["targets"])
     config["quality_floor"] = dict(preferences["floor"])
+    config["preset_hard_gates"] = dict(
+        document["presets"][preferences["preset"]].get("hard_gates", {})
+    )
     config["diversity"] = dict(preferences["diversity"])
     config["top_n"] = int(preferences["top_n"])
     config["shot_detection"]["merge_similarity"] = float(preferences["merge_similarity"])
@@ -367,7 +378,7 @@ def shot_detail_panel(
         + " La explicación se deriva del ranking; no es una valoración artística."
     )
 
-    image_path = simple.image_path_of(shot)
+    download = simple.download_of(shot)
     preview = simple.preview_of(shot)
     left, right = st.columns([3, 2])
     with left:
@@ -387,13 +398,14 @@ def shot_detail_panel(
                 "escriben al generarlo; relanza el CLI para verlo."
             )
     with right:
-        if image_path:
-            image = Path(image_path)
+        if download:
+            path, mime, label = download
+            suffix = Path(path).suffix
             st.download_button(
-                "Descargar foto (PNG)",
-                data=simple.file_bytes(image_path, image.stat().st_mtime),
-                file_name=image.name,
-                mime="image/png",
+                label,
+                data=simple.file_bytes(path, Path(path).stat().st_mtime),
+                file_name=f"{shot_id}_{simple.file_stamp(shot)}{suffix}",
+                mime=mime,
                 width="stretch",
                 key=f"simple_detail_dl_{shot_id}",
             )
@@ -445,11 +457,14 @@ def main() -> None:
     runs = find_runs()
     if not runs:
         st.title("Selector de planos")
-        st.error(
-            "No hay runs disponibles. Ejecuta primero:\n\n"
-            "```\n.\\\\.venv\\\\Scripts\\\\python.exe -m video_dsp.cli "
-            '"C:\\\\ruta\\\\video.mp4"\n```'
+        if st.session_state.get("upload_job") is not None:
+            upload.run_pending_job()
+            st.stop()
+        st.info(
+            "Todavía no hay ningún análisis. Sube un vídeo o indica su ruta para "
+            "empezar; también puedes lanzar el CLI a mano."
         )
+        upload.render_panel()
         st.stop()
 
     st.sidebar.title("🎬 Selector de planos")
@@ -465,13 +480,23 @@ def main() -> None:
         ),
     )
     run_labels = {path: f"{path.name}" for path in runs}
+    pending = st.session_state.pop("pending_run", None)
+    if pending is not None:
+        wanted = Path(pending).resolve()
+        for path in runs:
+            if path.resolve() == wanted:
+                # Set the widget state so the newly finished run is the one shown.
+                st.session_state["run_select"] = path
+                break
     selected_run = st.sidebar.selectbox(
         "Run",
         options=runs,
         format_func=lambda path: run_labels[path],
         index=0,
+        key="run_select",
     )
-    document = load_ui(str(selected_run / "ui.json"))
+    ui_path = selected_run / "ui.json"
+    document = load_ui(str(ui_path), ui_path.stat().st_mtime)
 
     if st.session_state.get("run_path") != str(selected_run):
         st.session_state["run_path"] = str(selected_run)
@@ -508,8 +533,13 @@ def main() -> None:
     with st.spinner("Recalculando ranking…"):
         result, rebuild_evidence = compute_result(document, config, preferences)
 
+    if st.session_state.get("upload_job") is not None:
+        upload.run_pending_job()
+
     if mode == "Simple":
         st.title("Tus fotos")
+        with st.expander("➕ Analizar otro vídeo", expanded=False):
+            upload.render_panel()
         warning_banner(document, result)
         simple.render_results(document, result, config)
         if st.session_state.get("simple_focus"):
@@ -517,6 +547,8 @@ def main() -> None:
         return
 
     header(document, result)
+    with st.expander("➕ Analizar otro vídeo", expanded=False):
+        upload.render_panel()
     warning_banner(document, result)
 
     tabs = st.tabs(
@@ -572,6 +604,14 @@ def render_sidebar(
         "Preferencia base", preset_names, index=index, key="preset_select"
     )
     st.sidebar.caption(document["presets"][choice]["description_es"])
+    chosen = document["presets"][choice]
+    dominant = max(chosen["weights"], key=lambda name: chosen["weights"][name])
+    band = chosen["targets"].get("duration_seconds", {})
+    st.sidebar.caption(
+        f"Dimensión dominante: **{dominant}** · "
+        f"banda de duración {band.get('low', 0):g}–{band.get('high', 0):g} s · "
+        f"normalización {chosen['normalization_method']}."
+    )
     if st.sidebar.button("Aplicar preset", width="stretch"):
         apply_preset(document, choice)
         st.rerun()
@@ -804,23 +844,24 @@ def tab_calibration(
         )
     with right:
         st.subheader("Fotograma representativo")
-        image_path = shot.get("selected_frame_image_path")
-        if image_path and Path(image_path).exists():
-            image = Path(image_path)
-            st.image(image_path, width="stretch")
+        download = simple.download_of(shot)
+        if download:
+            path, mime, label = download
+            st.image(path, width="stretch")
             st.caption(
                 f"{shot['shot_id']} · t={shot['selected_frame_timestamp']:.2f}s · "
                 f"regla: `{shot.get('selected_frame_rule', 'sharpest')}`"
             )
             st.download_button(
-                "Descargar fotograma (PNG)",
-                data=load_image(str(image), image.stat().st_mtime),
-                file_name=image.name,
-                mime="image/png",
+                f"{label} ({Path(path).suffix.lstrip('.')}, "
+                f"{Path(path).stat().st_size / 1e6:.1f} MB)",
+                data=load_image(path, Path(path).stat().st_mtime),
+                file_name=f"{shot['shot_id']}_{simple.file_stamp(shot)}{Path(path).suffix}",
+                mime=mime,
                 width="stretch",
                 key=f"download_frame_{generation}_{shot['shot_id']}",
             )
-            st.caption(f"Archivo: `{image_path}`")
+            st.caption(f"Archivo: `{path}`")
         else:
             st.info(
                 "Este plano no tiene fotograma exportado con el corte actual. Los "

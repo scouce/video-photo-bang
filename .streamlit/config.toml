@@ -1,0 +1,7 @@
+[server]
+# The default 200 MB cap is smaller than a single 4K clip.
+maxUploadSize = 4096
+headless = true
+
+[browser]
+gatherUsageStats = false

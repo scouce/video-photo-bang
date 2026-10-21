@@ -8,7 +8,7 @@ Living record of decisions, status, and open items. Updated at the end of every 
   non-photographer client (Simple mode) was added on top of the same config surface.
 - **Target:** deterministic classical-DSP shot selector for `.mov`, `.mp4`, `.m4v`, `.avi`, `.mkv`.
 - **Pipeline version:** 0.2.0 (`0.2.0` schema).
-- **Quality gates:** 123 tests passing; `ruff check .` clean.
+- **Quality gates:** 168 tests passing; `ruff check .` clean.
 
 ## Environment
 
@@ -36,8 +36,24 @@ Living record of decisions, status, and open items. Updated at the end of every 
   jitter [0, 3] px, entropy [0.30, 0.95], local contrast [0.010, 0.100].
 - Hard gates: black/white clip ≤ 0.10, min sharpness score 0.15, max instability 0.40,
   max jitter 4.0 px.
-- Score weights (`balanced_v2`): sharpness 0.28, exposure 0.18, contrast 0.12,
-  stability 0.16, motion 0.10, color 0.06, texture 0.05, duration 0.05.
+## 2026-10-21 — 004 execution
+
+- Downloads: `export_shot_photos` writes full-res JPEGs (q92, ~0.8 MB each) for selected +
+  rejected shots into `media/photos/`, records `photo_path/photo_bytes/photo_width/photo_height`,
+  CLI summary `shot_photos_written`/`shot_photos_dir`. Client serves the JPEG first and falls
+  back to the 480 px preview; two bulk ZIPs (light < 1 MB, full ~15 MB) plus a folder-path
+  fallback when a large download fails in a restricted browser. `load_ui` and `zip_bytes` now
+  key their cache on the file mtime, so a regenerated run is not served stale.
+- Upload: `.streamlit/config.toml` (maxUploadSize 4 GB); `app/upload.py` streams the upload in
+  8 MB chunks while hashing, dedupes by SHA-256, derives a deterministic run directory and
+  spawns `python -m video_dsp.cli` with live progress and cancel. Empty state shows the
+  uploader instead of an error.
+- Presets: optional `hard_gates` merged in `_apply_preset` and recorded as
+  `preset_hard_gates`; portrait/action/landscape/low_light/shorts now differ in weights,
+  bands, gates and duration intent. Measured Jaccard on IMG_1564.mov: all non-legacy pairs
+  <= 0.67 (was 0.82-1.00). `balanced_v1` stays legacy.
+- Tests: 104 passing; `pytest -q` and `ruff check .` clean.
+- Next: specs/003 (calibration) when the user provides labeled shots.
 - Diversity: MMR with weight 0.25 over Bhattacharyya histogram similarity.
 - All thresholds carry `calibration = "initial_uncalibrated"`.
 

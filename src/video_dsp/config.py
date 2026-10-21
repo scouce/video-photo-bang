@@ -66,6 +66,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "preset": DEFAULT_PRESET,
     "preset_label": _DEFAULT_PRESET["label_es"],
+    "preset_hard_gates": dict(_DEFAULT_PRESET.get("hard_gates", {})),
     "score_weights": dict(_DEFAULT_PRESET["weights"]),
     "targets": {key: dict(value) for key, value in _DEFAULT_PRESET["targets"].items()},
     "quality_floor": dict(_DEFAULT_PRESET["quality_floor"]),
@@ -129,6 +130,14 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "quality": 80,
             "note": "Small JPEG per recommended/discarded shot; bytes depend on the JPEG build",
         },
+        "photos": {
+            "enabled": True,
+            "quality": 92,
+            "note": (
+                "Full-resolution JPEG delivery copy of the chosen frame; the PNG stays the "
+                "archival artifact, the JPEG is what the gallery downloads"
+            ),
+        },
     },
 }
 
@@ -161,6 +170,14 @@ def _apply_preset(config: dict[str, Any], preset: str) -> None:
     config["quality_floor"] = bundle["quality_floor"]
     config["normalization"]["method"] = bundle["normalization_method"]
     config["hard_gates"]["calibration"] = bundle["calibration"]
+    # Gates are part of what a preset means (an action preset tolerates jitter that a
+    # portrait preset rejects), so a preset may tighten or relax them. The full merge is
+    # recorded twice: in ``hard_gates`` (what ran) and in ``preset_hard_gates`` (what the
+    # preset asked for), so the audit can tell defaults from preset overrides.
+    overrides = dict(bundle.get("hard_gates", {}))
+    config["preset_hard_gates"] = overrides
+    if overrides:
+        config["hard_gates"].update(overrides)
 
 
 def _validate_config(config: dict[str, Any]) -> None:

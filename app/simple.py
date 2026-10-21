@@ -55,7 +55,15 @@ def file_bytes(path: str, mtime: float) -> bytes:
 
 
 @st.cache_data(show_spinner="Preparando el ZIP…", max_entries=4)
-def zip_bytes(paths: tuple[str, ...], names: tuple[str, ...]) -> bytes:
+def zip_bytes(
+    paths: tuple[str, ...], names: tuple[str, ...], stamps: tuple[float, ...] = ()
+) -> bytes:
+    """Zip ``paths`` under ``names``.
+
+    ``stamps`` is only a cache key: the artifact paths are stable across runs, so without
+    the mtimes a regenerated run would keep serving the previous ZIP.
+    """
+    del stamps
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_STORED) as archive:
         for path, name in zip(paths, names, strict=True):
@@ -71,10 +79,48 @@ def image_path_of(shot: dict[str, Any]) -> str | None:
     return None
 
 
+def photo_path_of(shot: dict[str, Any]) -> str | None:
+    """Full-resolution JPEG delivery copy (what the gallery downloads)."""
+    path = shot.get("photo_path")
+    if path and Path(path).exists():
+        return path
+    return None
+
+
+def thumb_path_of(shot: dict[str, Any]) -> str | None:
+    path = shot.get("thumb_path")
+    if path and Path(path).exists():
+        return path
+    return None
+
+
+def download_of(shot: dict[str, Any]) -> tuple[str, str, str] | None:
+    """Best downloadable file for a shot: (path, mime, button label).
+
+    The label never promises a resolution the file does not have: a rejected shot has only
+    its 480 px preview, a recommended one has the full JPEG.
+    """
+    photo = photo_path_of(shot)
+    if photo:
+        return photo, "image/jpeg", "Descargar foto"
+    thumb = thumb_path_of(shot)
+    if thumb:
+        return thumb, "image/jpeg", "Descargar vista previa"
+    full = image_path_of(shot)
+    if full:
+        return full, "image/png", "Descargar foto (PNG)"
+    return None
+
+
+def file_stamp(shot: dict[str, Any]) -> str:
+    seconds = int(shot["start_time_seconds"])
+    return f"{seconds // 60:02d}m{seconds % 60:02d}s"
+
+
 def preview_of(shot: dict[str, Any]) -> bytes:
     """Prefer the run's small JPEG; fall back to downscaling the full PNG in memory."""
-    thumb = shot.get("thumb_path")
-    if thumb and Path(thumb).exists():
+    thumb = thumb_path_of(shot)
+    if thumb:
         return thumb_bytes(thumb, Path(thumb).stat().st_mtime)
     full = image_path_of(shot)
     if full:
@@ -83,7 +129,7 @@ def preview_of(shot: dict[str, Any]) -> bytes:
 
 
 def _card(shot: dict[str, Any]) -> None:
-    image_path = image_path_of(shot)
+    download = download_of(shot)
     icon, text = copy_es.status_chip(shot["status"])
     rejected = shot["status"] in {"rejected_gate", "rejected_floor"}
     suffix = f" — {copy_es.discard_reason(shot)}" if rejected else ""
@@ -103,13 +149,14 @@ def _card(shot: dict[str, Any]) -> None:
     if actions[0].button("Ver ficha", key=f"focus_{shot['shot_id']}", width="stretch"):
         st.session_state["simple_focus"] = shot["shot_id"]
         st.rerun()
-    if image_path:
+    if download:
+        path, mime, label = download
         actions[1].download_button(
-            "Descargar",
-            data=file_bytes(image_path, Path(image_path).stat().st_mtime),
-            file_name=Path(image_path).name,
-            mime="image/png",
-            key=f"download_png_{shot['shot_id']}",
+            label,
+            data=file_bytes(path, Path(path).stat().st_mtime),
+            file_name=f"{shot['shot_id']}_{file_stamp(shot)}{Path(path).suffix}",
+            mime=mime,
+            key=f"download_{shot['shot_id']}",
             width="stretch",
         )
 
@@ -195,23 +242,49 @@ def render_results(
                 _card(shot)
 
     st.divider()
-    downloads = st.columns([1, 1, 2])
     selected = [shot for shot in result["shots"] if shot["status"] == "selected"]
-    exportable = [(shot, image_path_of(shot)) for shot in selected]
-    exportable = [(shot, path) for shot, path in exportable if path]
-    if exportable:
-        paths = tuple(path for _, path in exportable)
-        names = tuple(f"{shot['shot_id']}_{Path(path).name}" for shot, path in exportable)
+    full = [(shot, photo_path_of(shot)) for shot in selected]
+    full = [(shot, path) for shot, path in full if path]
+    light = [(shot, thumb_path_of(shot)) for shot in selected]
+    light = [(shot, path) for shot, path in light if path]
+
+    downloads = st.columns([1, 1, 1])
+    # Light first: it is the one that works everywhere and is what a non-photographer
+    # needs to share a pick; the full-resolution ZIP is one click away.
+    if light:
+        paths = tuple(path for _, path in light)
+        names = tuple(
+            f"{shot['shot_id']}_{file_stamp(shot)}_ligera.jpg" for shot, _ in light
+        )
+        stamps = tuple(Path(path).stat().st_mtime for path in paths)
         downloads[0].download_button(
-            f"Descargar recomendadas (ZIP, {len(exportable)})",
-            data=zip_bytes(paths, names),
-            file_name=f"{document.get('run_id', 'run')}_recomendadas.zip",
+            f"Descargar todas (ligera, {len(light)})",
+            data=zip_bytes(paths, names, stamps),
+            file_name=f"{document.get('run_id', 'run')}_fotos_ligeras.zip",
             mime="application/zip",
             width="stretch",
+            help="Miniaturas de 480 px: pesa menos de 1 MB y se comparte al instante.",
         )
     else:
-        downloads[0].caption("No hay fotos recomendadas para descargar.")
-    downloads[1].download_button(
+        downloads[0].caption("Sin miniaturas en este run.")
+    if full:
+        paths = tuple(path for _, path in full)
+        names = tuple(f"{shot['shot_id']}_{file_stamp(shot)}.jpg" for shot, _ in full)
+        stamps = tuple(Path(path).stat().st_mtime for path in paths)
+        downloads[1].download_button(
+            f"Descargar todas (calidad completa, {len(full)})",
+            data=zip_bytes(paths, names, stamps),
+            file_name=f"{document.get('run_id', 'run')}_fotos.zip",
+            mime="application/zip",
+            width="stretch",
+            help=(
+                "JPEG a resolución completa (unos 0,9 MB por foto). Si el navegador no "
+                "descarga el ZIP entero, las fotos también están en la carpeta del run."
+            ),
+        )
+    else:
+        downloads[1].caption("No hay fotos recomendadas para descargar.")
+    downloads[2].download_button(
         "Descargar configuración (JSON)",
         data=json.dumps(config, indent=2, ensure_ascii=False),
         file_name="config_overrides.json",
@@ -219,9 +292,13 @@ def render_results(
         width="stretch",
     )
 
+    run_dir = Path(document.get("run_dir", document.get("artifacts", {}).get("run_dir", "")))
+    photos_dir = run_dir / "media" / "photos"
     st.caption(
-        "Las fotos se exportan a resolución completa. La configuración descargada "
-        "reproduce este mismo ranking con el CLI."
+        "Las fotos a resolución completa se guardan en `media/photos/` dentro de la "
+        f"carpeta del run (`{photos_dir}`); si una descarga grande no termina, abre "
+        "esa carpeta directamente. La configuración descargada reproduce este mismo "
+        "ranking con el CLI."
     )
 
 

@@ -62,17 +62,59 @@ def test_gallery_has_one_card_per_recommended_shot(run_dir):
     del run_dir
     app = _app()
     fichas = [button for button in app.button if button.label == "Ver ficha"]
-    downloads = [button for button in app.download_button if button.label == "Descargar"]
+    downloads = [
+        button
+        for button in app.download_button
+        if button.label in {"Descargar foto", "Descargar vista previa"}
+    ]
     assert len(fichas) >= 1
     assert len(downloads) == len(fichas)
 
 
-def test_main_page_offers_zip_and_config(run_dir):
+def test_main_page_offers_both_zips_and_config(run_dir):
     del run_dir
     app = _app()
     labels = [button.label for button in app.download_button]
-    assert any("ZIP" in label for label in labels)
+    assert any("calidad completa" in label for label in labels)
+    assert any("ligera" in label for label in labels)
     assert any("configuración" in label for label in labels)
+
+
+def test_download_prefers_the_full_jpeg(run_dir):
+    document = json.loads((run_dir / "ui.json").read_text(encoding="utf-8"))
+    selected = [shot for shot in document["shots"] if shot["status"] == "selected"]
+    assert selected
+    for shot in selected:
+        path, mime, label = simple.download_of(shot)
+        assert Path(path) == Path(shot["photo_path"])
+        assert mime == "image/jpeg"
+        assert label == "Descargar foto"
+        assert Path(path).stat().st_size > 0
+
+
+def test_download_falls_back_to_the_preview_for_rejected_shots(run_dir):
+    document = json.loads((run_dir / "ui.json").read_text(encoding="utf-8"))
+    rejected = [
+        shot for shot in document["shots"] if shot["status"].startswith("rejected")
+    ]
+    assert rejected
+    # A run created after this change ships the full JPEG for rejected shots too.
+    for shot in rejected:
+        assert Path(shot["photo_path"]).exists()
+    # A run from before it only had the 480 px preview: never promise more than that.
+    legacy = {key: value for key, value in rejected[0].items() if key != "photo_path"}
+    path, mime, label = simple.download_of(legacy)
+    assert Path(path) == Path(legacy["thumb_path"])
+    assert mime == "image/jpeg"
+    assert label == "Descargar vista previa"
+
+
+def test_the_full_jpeg_is_smaller_than_the_png(run_dir):
+    document = json.loads((run_dir / "ui.json").read_text(encoding="utf-8"))
+    for shot in document["shots"]:
+        png = shot.get("selected_frame_image_path")
+        if png:
+            assert shot["photo_bytes"] < Path(png).stat().st_size
 
 
 def test_zip_contains_the_recommended_pngs(run_dir):
