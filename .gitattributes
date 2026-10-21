@@ -1,0 +1,16 @@
+# Normalize text files to LF in the repository; the working tree stays platform-native.
+* text=auto
+
+*.py text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.csv text eol=lf
+*.yml text eol=lf
+
+# Binary fixtures and media are never touched.
+*.mov binary
+*.mp4 binary
+*.avi binary
+*.png binary
+*.gz binary
